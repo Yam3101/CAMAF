@@ -1,0 +1,76 @@
+{
+  "name": "camaf",
+  "version": "0.1.0",
+  "description": "CAMAF - Camaleon Administracion de Activos Fijos",
+  "author": "Complejo Mayakoba Mexico",
+  "private": true,
+  "main": "dist-electron/main/main.js",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/install-better-sqlite3-electron.js",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "package": "npm run build && electron-builder",
+    "db:reset": "node scripts/db-reset.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.mayakoba.camaf",
+    "productName": "CAMAF",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon.ico",
+      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "sign": null
+      }
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "bcryptjs": "latest",
+    "better-sqlite3": "12.9.0",
+    "pdf-lib": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-icons": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/bcryptjs": "latest",
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "latest",
+    "electron": "38.8.6",
+    "electron-builder": "latest",
+    "electron-vite": "^5.0.0",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "^7.3.3"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+release/
+dist/
+out/
+build/
+
+*.exe
+*.zip
+*.rar
+
+.env

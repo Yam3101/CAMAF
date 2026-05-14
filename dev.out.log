@@ -1,0 +1,34 @@
+
+> camaf@0.1.0 dev
+> electron-vite dev
+
+[36mvite v7.3.3 [32mbuilding ssr environment for development...[36m[39m
+transforming...
+[32m✓[39m 13 modules transformed.
+rendering chunks...
+[2mdist-electron/main/[22m[36mmain.js  [39m[1m[2m227.14 kB[22m[1m[22m
+[32m✓ built in 1.23s[39m
+[32m
+electron main process built successfully[39m
+[90m
+-----
+[39m
+[36mvite v7.3.3 [32mbuilding ssr environment for development...[36m[39m
+transforming...
+[32m✓[39m 1 modules transformed.
+rendering chunks...
+[2mdist-electron/preload/[22m[36mpreload.js  [39m[1m[2m1.37 kB[22m[1m[22m
+[32m✓ built in 65ms[39m
+[32m
+electron preload scripts built successfully[39m
+[90m
+-----
+[39m
+[32mdev server running for the electron renderer process at:
+[39m
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[32m
+starting electron app...
+[39m
+
