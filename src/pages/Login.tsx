@@ -1,78 +1,106 @@
-import { FormEvent, useState } from "react";
-import { HiOutlineLockClosed } from "react-icons/hi2";
-import { useAuth } from "../hooks/useAuth";
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import "@/styles/login.css";
 
 export default function Login() {
 	const { login } = useAuth();
-	const [email, setEmail] = useState("admin@camaf.local");
-	const [password, setPassword] = useState("Admin123!");
+
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
-	const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+	const handleSubmit = async (
+		event: FormEvent<HTMLFormElement>,
+	): Promise<void> => {
 		event.preventDefault();
 		setError(null);
+
 		if (!email.trim() || !password.trim()) {
-			setError("Email y password son obligatorios");
+			setError("Completa todos los campos.");
 			return;
 		}
+
 		setSubmitting(true);
+
 		try {
 			await login(email, password);
 		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "No se pudo iniciar sesion",
-			);
+			setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
 		} finally {
 			setSubmitting(false);
 		}
 	};
 
 	return (
-		<main className="grid min-h-screen place-items-center px-4">
-			<section className="w-full max-w-md rounded border border-camaf-sage/20 bg-white/90 p-8 shadow-2xl backdrop-blur">
-				<div className="mb-8 text-center">
-					<div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded bg-camaf-ink text-camaf-mint">
-						<HiOutlineLockClosed className="h-7 w-7" />
+		<main className="login-page">
+			<section className="login-card">
+				<div className="login-header">
+					<div className="login-logo">
+						<LockKeyhole size={34} />
 					</div>
-					<h1 className="text-3xl font-semibold text-camaf-ink">CAMAF</h1>
-					<p className="mt-2 text-sm text-slate-500">
-						Camaleon Administracion de Activos Fijos
+
+					<h1 className="login-title">CAMAF</h1>
+					<p className="login-subtitle">
+						Control y administración de activos fijos
 					</p>
 				</div>
 
-				<form className="space-y-4" onSubmit={submit}>
-					<label className="block">
-						<span className="text-sm font-medium text-slate-700">Email</span>
+				<form className="login-form" onSubmit={handleSubmit}>
+					<div className="form-group">
+						<label className="form-label" htmlFor="email">
+							Correo electrónico
+						</label>
 						<input
+							id="email"
 							type="email"
+							placeholder="correo@empresa.com"
+							className="form-input"
 							value={email}
-							onChange={(event) => setEmail(event.target.value)}
-							className="mt-1 h-11 w-full rounded border border-camaf-sage/30 px-3 text-sm outline-none focus:border-camaf-sage focus:ring-2 focus:ring-camaf-mint/40"
+							onChange={(event: ChangeEvent<HTMLInputElement>) =>
+								setEmail(event.target.value)
+							}
 						/>
-					</label>
-					<label className="block">
-						<span className="text-sm font-medium text-slate-700">Password</span>
-						<input
-							type="password"
-							value={password}
-							onChange={(event) => setPassword(event.target.value)}
-							className="mt-1 h-11 w-full rounded border border-camaf-sage/30 px-3 text-sm outline-none focus:border-camaf-sage focus:ring-2 focus:ring-camaf-mint/40"
-						/>
-					</label>
-					{error && (
-						<p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600">
-							{error}
-						</p>
-					)}
-					<button
-						type="submit"
-						disabled={submitting}
-						className="h-11 w-full rounded bg-camaf-ink text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{submitting ? "Entrando..." : "Entrar"}
+					</div>
+
+					<div className="form-group">
+						<label className="form-label" htmlFor="password">
+							Contraseña
+						</label>
+						<div className="password-wrapper">
+							<input
+								id="password"
+								type={showPassword ? "text" : "password"}
+								placeholder="••••••••"
+								className="form-input"
+								value={password}
+								onChange={(event: ChangeEvent<HTMLInputElement>) =>
+									setPassword(event.target.value)
+								}
+							/>
+							<button
+								type="button"
+								className="password-toggle"
+								onClick={() => setShowPassword(!showPassword)}
+								aria-label={
+									showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+								}
+							>
+								{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+							</button>
+						</div>
+					</div>
+
+					{error && <div className="error-box">{error}</div>}
+
+					<button type="submit" className="login-button" disabled={submitting}>
+						{submitting ? "Ingresando..." : "Iniciar sesión"}
 					</button>
 				</form>
+
+				<div className="login-footer">CAMAF Mayakoba</div>
 			</section>
 		</main>
 	);

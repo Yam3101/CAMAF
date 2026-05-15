@@ -1,0 +1,73 @@
+.assets-toolbar {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.asset-form {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.asset-detail-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.asset-info-card {
+	padding: 17px;
+	border: 1px solid var(--camaf-border);
+	border-radius: var(--camaf-radius-md);
+	background: rgba(15, 23, 42, 0.6);
+	box-shadow: var(--camaf-shadow-soft);
+	backdrop-filter: blur(20px);
+}
+
+.asset-info-card__label {
+	margin: 0;
+	color: var(--camaf-muted);
+	font-size: 0.73rem;
+	font-weight: 780;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.asset-info-card__value {
+	min-height: 22px;
+	margin: 9px 0 0;
+	color: var(--camaf-text);
+	font-size: 0.95rem;
+	font-weight: 690;
+	line-height: 1.5;
+}
+
+.asset-notes-card {
+	padding: 18px;
+}
+
+.asset-history-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.empty-state-card {
+	padding: 22px;
+	color: var(--camaf-muted);
+	font-size: 0.95rem;
+}
+
+@media (max-width: 1120px) {
+	.asset-detail-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 700px) {
+	.asset-form,
+	.asset-detail-grid {
+		grid-template-columns: 1fr;
+	}
+}

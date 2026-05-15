@@ -1,0 +1,65 @@
+.dashboard-metrics {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.metric-card {
+	padding: 20px;
+	border: 1px solid var(--camaf-border);
+	border-radius: var(--camaf-radius-md);
+	background: rgba(15, 23, 42, 0.62);
+	box-shadow: var(--camaf-shadow-soft);
+	backdrop-filter: blur(20px);
+}
+
+.metric-card__top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+}
+
+.metric-card__label {
+	margin: 0;
+	color: var(--camaf-muted);
+	font-size: 0.88rem;
+	font-weight: 660;
+}
+
+.metric-card__icon {
+	width: 42px;
+	height: 42px;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--camaf-border);
+	border-radius: 15px;
+	color: var(--camaf-accent-soft);
+	background: rgba(16, 185, 129, 0.08);
+}
+
+.metric-card__value {
+	margin: 18px 0 0;
+	color: var(--camaf-text);
+	font-size: 2.2rem;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.dashboard-table-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+@media (max-width: 1180px) {
+	.dashboard-metrics {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 640px) {
+	.dashboard-metrics {
+		grid-template-columns: 1fr;
+	}
+}

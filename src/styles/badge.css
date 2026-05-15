@@ -1,0 +1,57 @@
+.status-badge {
+	display: inline-flex;
+	align-items: center;
+	min-height: 26px;
+	padding: 0 10px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 999px;
+	font-size: 0.75rem;
+	font-weight: 760;
+	text-transform: capitalize;
+	white-space: nowrap;
+}
+
+.status-badge--activo,
+.status-badge--devolucion {
+	color: #bbf7d0;
+	background: rgba(34, 197, 94, 0.12);
+	border-color: rgba(34, 197, 94, 0.22);
+}
+
+.status-badge--asignado,
+.status-badge--asignacion {
+	color: #bae6fd;
+	background: rgba(56, 189, 248, 0.12);
+	border-color: rgba(56, 189, 248, 0.22);
+}
+
+.status-badge--mantenimiento {
+	color: #fde68a;
+	background: rgba(245, 158, 11, 0.13);
+	border-color: rgba(245, 158, 11, 0.24);
+}
+
+.status-badge--baja,
+.status-badge--inactivo {
+	color: #fecaca;
+	background: rgba(239, 68, 68, 0.12);
+	border-color: rgba(239, 68, 68, 0.22);
+}
+
+.status-badge--admin {
+	color: var(--camaf-accent-ink);
+	background: linear-gradient(135deg, var(--camaf-accent), var(--camaf-accent-soft));
+	border-color: rgba(255, 255, 255, 0.16);
+}
+
+.status-badge--supervisor,
+.status-badge--reasignacion {
+	color: #ddd6fe;
+	background: rgba(167, 139, 250, 0.14);
+	border-color: rgba(167, 139, 250, 0.24);
+}
+
+.status-badge--usuario {
+	color: var(--camaf-text-soft);
+	background: rgba(255, 255, 255, 0.07);
+}

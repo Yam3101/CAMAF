@@ -1,0 +1,288 @@
+@import "@fontsource-variable/geist";
+
+:root {
+	--camaf-bg: #020617;
+	--camaf-bg-soft: #07111f;
+	--camaf-panel: rgba(15, 23, 42, 0.72);
+	--camaf-panel-strong: rgba(15, 23, 42, 0.92);
+	--camaf-panel-soft: rgba(255, 255, 255, 0.055);
+	--camaf-border: rgba(255, 255, 255, 0.08);
+	--camaf-border-strong: rgba(255, 255, 255, 0.14);
+	--camaf-text: #f8fafc;
+	--camaf-text-soft: #cbd5e1;
+	--camaf-muted: #94a3b8;
+	--camaf-muted-strong: #64748b;
+	--camaf-accent: #10b981;
+	--camaf-accent-soft: #34d399;
+	--camaf-accent-ink: #052e16;
+	--camaf-danger: #ef4444;
+	--camaf-warning: #f59e0b;
+	--camaf-info: #38bdf8;
+	--camaf-purple: #a78bfa;
+	--camaf-radius-lg: 28px;
+	--camaf-radius-md: 18px;
+	--camaf-radius-sm: 14px;
+	--camaf-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+	--camaf-shadow-soft: 0 16px 42px rgba(0, 0, 0, 0.2);
+	--camaf-transition: 180ms ease;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--camaf-bg);
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100vh;
+	color: var(--camaf-text);
+	font-family: "Geist Variable", Inter, ui-sans-serif, system-ui, -apple-system,
+		BlinkMacSystemFont, "Segoe UI", sans-serif;
+	background:
+		radial-gradient(circle at top left, rgba(16, 185, 129, 0.15), transparent 30%),
+		radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 35%),
+		var(--camaf-bg);
+	letter-spacing: 0;
+	overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
+button {
+	cursor: pointer;
+}
+
+button:disabled {
+	cursor: not-allowed;
+}
+
+a {
+	color: inherit;
+}
+
+.app-loading-screen {
+	min-height: 100vh;
+	display: grid;
+	place-items: center;
+	color: var(--camaf-muted);
+	font-size: 0.95rem;
+}
+
+.app-toast {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 80;
+	max-width: min(420px, calc(100vw - 32px));
+	padding: 14px 16px;
+	border-radius: var(--camaf-radius-sm);
+	font-size: 0.9rem;
+	font-weight: 650;
+	box-shadow: var(--camaf-shadow-soft);
+	backdrop-filter: blur(18px);
+	animation: toast-in 180ms ease both;
+}
+
+.app-toast--success {
+	color: var(--camaf-accent-ink);
+	background: linear-gradient(135deg, var(--camaf-accent), var(--camaf-accent-soft));
+}
+
+.app-toast--error {
+	color: #fee2e2;
+	background: rgba(127, 29, 29, 0.82);
+	border: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+.page-shell {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+}
+
+.page-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.page-kicker {
+	margin: 0 0 6px;
+	color: var(--camaf-accent-soft);
+	font-size: 0.75rem;
+	font-weight: 750;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.page-title {
+	margin: 0;
+	color: var(--camaf-text);
+	font-size: clamp(1.6rem, 2vw, 2.15rem);
+	font-weight: 760;
+	letter-spacing: 0;
+}
+
+.page-description {
+	margin: 8px 0 0;
+	color: var(--camaf-muted);
+	font-size: 0.95rem;
+	line-height: 1.6;
+}
+
+.section-title {
+	margin: 0;
+	color: var(--camaf-text);
+	font-size: 1.08rem;
+	font-weight: 720;
+}
+
+.glass-panel {
+	border: 1px solid var(--camaf-border);
+	border-radius: var(--camaf-radius-md);
+	background: rgba(15, 23, 42, 0.58);
+	box-shadow: var(--camaf-shadow-soft);
+	backdrop-filter: blur(20px);
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.danger-button,
+.icon-button {
+	border: 0;
+	transition:
+		transform var(--camaf-transition),
+		background var(--camaf-transition),
+		border-color var(--camaf-transition),
+		color var(--camaf-transition),
+		box-shadow var(--camaf-transition);
+}
+
+.primary-button {
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 0 16px;
+	border-radius: var(--camaf-radius-sm);
+	color: var(--camaf-accent-ink);
+	background: linear-gradient(135deg, var(--camaf-accent), var(--camaf-accent-soft));
+	font-size: 0.92rem;
+	font-weight: 780;
+	box-shadow: 0 14px 34px rgba(16, 185, 129, 0.22);
+}
+
+.primary-button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 18px 42px rgba(16, 185, 129, 0.3);
+}
+
+.secondary-button {
+	min-height: 42px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 9px;
+	padding: 0 14px;
+	border: 1px solid var(--camaf-border);
+	border-radius: var(--camaf-radius-sm);
+	color: var(--camaf-text-soft);
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.secondary-button:hover,
+.ghost-button:hover {
+	color: var(--camaf-text);
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.ghost-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0;
+	color: var(--camaf-muted);
+	background: transparent;
+	font-size: 0.9rem;
+	font-weight: 660;
+}
+
+.danger-button {
+	color: #fecaca;
+	background: rgba(239, 68, 68, 0.1);
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.icon-button {
+	width: 36px;
+	height: 36px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--camaf-border);
+	border-radius: 12px;
+	color: var(--camaf-text-soft);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.icon-button:hover {
+	color: var(--camaf-text);
+	background: rgba(255, 255, 255, 0.1);
+	border-color: var(--camaf-border-strong);
+}
+
+.icon-button--danger {
+	color: #fca5a5;
+	border-color: rgba(248, 113, 113, 0.2);
+}
+
+.icon-button--danger:hover {
+	color: #fee2e2;
+	background: rgba(239, 68, 68, 0.14);
+}
+
+.text-link-button {
+	border: 0;
+	padding: 0;
+	color: var(--camaf-accent-soft);
+	background: transparent;
+	font-weight: 700;
+}
+
+.text-link-button:hover {
+	color: var(--camaf-text);
+}
+
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 780px) {
+	.page-header {
+		flex-direction: column;
+	}
+
+	.app-toast {
+		right: 16px;
+		bottom: 16px;
+	}
+}

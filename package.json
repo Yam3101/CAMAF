@@ -49,27 +49,24 @@
     }
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
     "bcryptjs": "latest",
     "better-sqlite3": "12.9.0",
+    "lucide-react": "^1.16.0",
     "pdf-lib": "latest",
     "react": "latest",
-    "react-dom": "latest",
-    "react-icons": "latest"
+    "react-dom": "latest"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "latest",
     "@types/bcryptjs": "latest",
     "@types/better-sqlite3": "latest",
-    "@types/node": "latest",
+    "@types/node": "^25.8.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "^5.1.1",
-    "autoprefixer": "latest",
     "electron": "38.8.6",
     "electron-builder": "latest",
     "electron-vite": "^5.0.0",
-    "postcss": "latest",
-    "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "^7.3.3"
   }
