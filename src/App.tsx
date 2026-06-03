@@ -44,6 +44,7 @@ export default function App() {
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		async function boot() {
 			try {

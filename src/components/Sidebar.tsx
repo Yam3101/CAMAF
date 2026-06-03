@@ -2,6 +2,29 @@ import { ArrowRightLeft, Home, Monitor, Users } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import "@/styles/sidebar.css";
 
+// CAMAF — Logo dinámico: muestra imagen si existe, fallback a "C".
+const brandLogos = import.meta.glob("../assets/brand/*.{png,svg,jpg,jpeg}", {
+	eager: true,
+	import: "default",
+	query: "?url",
+}) as Record<string, string>;
+
+const logoPriority = [
+	"logoChicoBlanco.png",
+	"LogoChicoColor.png",
+	"LogoHorizontalBlanco.png",
+	"Logohorizontal.png",
+	"logo-mayakoba.png",
+];
+
+const logoMayakoba =
+	logoPriority
+		.map(
+			(name) =>
+				Object.entries(brandLogos).find(([path]) => path.endsWith(`/${name}`))?.[1],
+		)
+		.find(Boolean) ?? Object.values(brandLogos)[0];
+
 type SidebarProps = {
 	route: string;
 	navigate: (route: string) => void;
@@ -25,7 +48,21 @@ export default function Sidebar({ route, navigate }: SidebarProps) {
 		<aside className="sidebar">
 			<div className="sidebar-brand">
 				<div className="sidebar-brand__inner">
-					<div className="sidebar-brand__mark">C</div>
+					<div
+						className={`sidebar-logo-container${
+							logoMayakoba ? "" : " sidebar-logo-container--fallback"
+						}`}
+					>
+						{logoMayakoba ? (
+							<img
+								src={logoMayakoba}
+								alt="Logo Mayakoba"
+								className="sidebar-logo-img"
+							/>
+						) : (
+							<span className="sidebar-logo-fallback">C</span>
+						)}
+					</div>
 					<div>
 						<p className="sidebar-brand__name">CAMAF</p>
 						<p className="sidebar-brand__caption">Activos Fijos Mayakoba</p>

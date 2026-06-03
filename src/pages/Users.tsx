@@ -109,7 +109,6 @@ export default function Users({ notify }: UsersProps) {
 			header: "Nombre",
 			render: (row) => <span className="table-cell-strong">{row.nombre}</span>,
 		},
-		{ key: "email", header: "Email", render: (row) => row.email },
 		{ key: "rol", header: "Rol", render: (row) => <Badge value={row.rol} /> },
 		{ key: "area", header: "Área", render: (row) => row.areaNombre ?? "N/A" },
 		{ key: "status", header: "Status", render: (row) => <Badge value={row.status} /> },

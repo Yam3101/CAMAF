@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Archive, ClipboardList, Monitor, Wrench } from "lucide-react";
 import Badge from "../components/Badge";
+import ActivosModal from "../components/ui/ActivosModal";
 import Table, { type Column } from "../components/Table";
 import type { Toast } from "../App";
 import type { Asset, Movimiento } from "../types";
@@ -15,6 +16,7 @@ type DashboardProps = {
 export default function Dashboard({ navigate, notify }: DashboardProps) {
 	const [assets, setAssets] = useState<Asset[]>([]);
 	const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+	const [activeMetric, setActiveMetric] = useState<string | null>(null);
 
 	useEffect(() => {
 		async function load() {
@@ -41,18 +43,26 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 
 	const metrics = useMemo(
 		() => [
-			{ label: "Total de activos", value: assets.length, icon: Monitor },
 			{
+				key: "total",
+				label: "Total de activos",
+				value: assets.length,
+				icon: Monitor,
+			},
+			{
+				key: "asignado",
 				label: "Activos asignados",
 				value: assets.filter((asset) => asset.status === "asignado").length,
 				icon: ClipboardList,
 			},
 			{
+				key: "mantenimiento",
 				label: "En mantenimiento",
 				value: assets.filter((asset) => asset.status === "mantenimiento").length,
 				icon: Wrench,
 			},
 			{
+				key: "baja",
 				label: "Dados de baja",
 				value: assets.filter((asset) => asset.status === "baja").length,
 				icon: Archive,
@@ -60,6 +70,14 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 		],
 		[assets],
 	);
+
+	const modalAssets = useMemo(() => {
+		if (!activeMetric || activeMetric === "total") return assets;
+		return assets.filter((asset) => asset.status === activeMetric);
+	}, [activeMetric, assets]);
+
+	const modalTitle =
+		metrics.find((metric) => metric.key === activeMetric)?.label ?? "Total de activos";
 
 	const columns: Column<Movimiento>[] = [
 		{
@@ -110,7 +128,12 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 					const Icon = metric.icon;
 
 					return (
-						<article key={metric.label} className="metric-card">
+						<button
+							key={metric.label}
+							type="button"
+							className="metric-card metric-card--interactive"
+							onClick={() => setActiveMetric(metric.key)}
+						>
 							<div className="metric-card__top">
 								<p className="metric-card__label">{metric.label}</p>
 								<span className="metric-card__icon" aria-hidden="true">
@@ -118,7 +141,7 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 								</span>
 							</div>
 							<p className="metric-card__value">{metric.value}</p>
-						</article>
+						</button>
 					);
 				})}
 			</section>
@@ -132,6 +155,13 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 					emptyText="No hay movimientos registrados"
 				/>
 			</section>
+
+			<ActivosModal
+				open={Boolean(activeMetric)}
+				title={modalTitle}
+				assets={modalAssets}
+				onClose={() => setActiveMetric(null)}
+			/>
 		</div>
 	);
 }

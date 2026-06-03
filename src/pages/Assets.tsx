@@ -1,11 +1,12 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Toast } from "../App";
 import Badge from "../components/Badge";
 import Modal from "../components/Modal";
 import SearchBar from "../components/SearchBar";
 import Table, { type Column } from "../components/Table";
 import { useAuth } from "../hooks/useAuth";
+import { generarPDFAlta, generarPDFBaja } from "../lib/pdfGenerator";
 import type {
 	Area,
 	Asset,
@@ -64,11 +65,23 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 	const [editing, setEditing] = useState<Asset | null>(null);
 	const [form, setForm] = useState<AssetInput>(emptyForm);
 	const [modalOpen, setModalOpen] = useState(false);
+	const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+	const [bajaModalOpen, setBajaModalOpen] = useState(false);
+	const [bajaMotivo, setBajaMotivo] = useState("");
+	const [bajaUsuarioId, setBajaUsuarioId] = useState("");
 
 	const filters = useMemo(
 		() => ({ search, tipo, areaId, status }),
 		[search, tipo, areaId, status],
 	);
+
+	const selectedAssets = useMemo(
+		() => assets.filter((asset) => selectedAssetIds.includes(asset.id)),
+		[assets, selectedAssetIds],
+	);
+
+	const allVisibleSelected =
+		assets.length > 0 && assets.every((asset) => selectedAssetIds.includes(asset.id));
 
 	async function load() {
 		const [assetResponse, areaResponse, userResponse] = await Promise.all([
@@ -81,6 +94,9 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 			notify({ type: "error", message: assetResponse.error });
 		} else {
 			setAssets(assetResponse);
+			setSelectedAssetIds((current) =>
+				current.filter((id) => assetResponse.some((asset) => asset.id === id)),
+			);
 		}
 
 		if (isIpcError(areaResponse)) {
@@ -158,7 +174,65 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 		}
 	};
 
+	const toggleAssetSelection = (assetId: string): void => {
+		setSelectedAssetIds((current) =>
+			current.includes(assetId)
+				? current.filter((id) => id !== assetId)
+				: [...current, assetId],
+		);
+	};
+
+	const toggleAllVisible = (): void => {
+		if (allVisibleSelected) {
+			setSelectedAssetIds([]);
+			return;
+		}
+		setSelectedAssetIds(assets.map((asset) => asset.id));
+	};
+
+	const generateAlta = async (): Promise<void> => {
+		if (!selectedAssets.length) return;
+		await generarPDFAlta(selectedAssets);
+		notify({ type: "success", message: "PDF de alta generado" });
+	};
+
+	const generateBaja = async (): Promise<void> => {
+		if (!selectedAssets.length || !bajaMotivo.trim()) {
+			notify({ type: "error", message: "Indica el motivo de la baja" });
+			return;
+		}
+
+		const responsable = users.find((person) => person.id === bajaUsuarioId);
+		await generarPDFBaja(selectedAssets, bajaMotivo.trim(), responsable);
+		setBajaModalOpen(false);
+		setBajaMotivo("");
+		setBajaUsuarioId("");
+		notify({ type: "success", message: "PDF de baja generado" });
+	};
+
 	const columns: Column<Asset>[] = [
+		{
+			key: "select",
+			header: (
+				<input
+					type="checkbox"
+					className="asset-checkbox"
+					checked={allVisibleSelected}
+					onChange={toggleAllVisible}
+					aria-label="Seleccionar activos visibles"
+				/>
+			),
+			className: "table-cell-select",
+			render: (row) => (
+				<input
+					type="checkbox"
+					className="asset-checkbox"
+					checked={selectedAssetIds.includes(row.id)}
+					onChange={() => toggleAssetSelection(row.id)}
+					aria-label={`Seleccionar ${row.nombre}`}
+				/>
+			),
+		},
 		{ key: "internalId", header: "ID interno", render: (row) => row.internalId ?? "N/A" },
 		{ key: "tipo", header: "Tipo", render: (row) => row.tipo },
 		{
@@ -260,6 +334,25 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 				emptyText="No hay activos registrados"
 			/>
 
+			{selectedAssets.length > 0 && (
+				<section className="assets-selection-bar">
+					<span>{selectedAssets.length} activos seleccionados</span>
+					<div className="assets-selection-actions">
+						<button type="button" className="secondary-button" onClick={() => setSelectedAssetIds([])}>
+							Limpiar selección
+						</button>
+						<button type="button" className="primary-button" onClick={() => void generateAlta()}>
+							<FileText size={18} />
+							Generar PDF Alta
+						</button>
+						<button type="button" className="secondary-button danger-button" onClick={() => setBajaModalOpen(true)}>
+							<FileText size={18} />
+							Generar PDF Baja
+						</button>
+					</div>
+				</section>
+			)}
+
 			<Modal
 				open={modalOpen}
 				title={editing ? "Editar activo" : "Nuevo activo"}
@@ -291,6 +384,46 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 						</button>
 						<button type="submit" className="primary-button">
 							Guardar
+						</button>
+					</div>
+				</form>
+			</Modal>
+
+			<Modal
+				open={bajaModalOpen}
+				title="Generar PDF de baja"
+				onClose={() => setBajaModalOpen(false)}
+			>
+				<form
+					className="asset-form"
+					onSubmit={(event) => {
+						event.preventDefault();
+						void generateBaja();
+					}}
+				>
+					<label className="form-group form-span-full">
+						<span className="form-label">Motivo de la baja</span>
+						<textarea
+							className="form-textarea"
+							value={bajaMotivo}
+							onChange={(event) => setBajaMotivo(event.target.value)}
+							placeholder="Describe el motivo de la baja"
+							required
+						/>
+					</label>
+					<FormSelect
+						label="Responsable"
+						value={bajaUsuarioId}
+						onChange={setBajaUsuarioId}
+						options={users.map((person) => ({ value: person.id, label: person.nombre }))}
+						emptyLabel="Sin responsable"
+					/>
+					<div className="form-actions">
+						<button type="button" onClick={() => setBajaModalOpen(false)} className="secondary-button">
+							Cancelar
+						</button>
+						<button type="submit" className="primary-button">
+							Generar PDF
 						</button>
 					</div>
 				</form>
