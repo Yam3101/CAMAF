@@ -34,6 +34,8 @@ const api = {
   users: {
     list: (): Promise<User[] | { error: string }> => ipcRenderer.invoke('users:list'),
     create: (input: UserInput): Promise<User | { error: string }> => ipcRenderer.invoke('users:create', input),
+    ensureBasic: (input: { nombre: string; areaId?: string | null }): Promise<User | { error: string }> =>
+      ipcRenderer.invoke('users:ensureBasic', input),
     update: (id: string, data: Partial<UserInput>): Promise<User | { error: string }> =>
       ipcRenderer.invoke('users:update', { id, data }),
     delete: (id: string): Promise<{ success: boolean } | { error: string }> =>
@@ -46,7 +48,10 @@ const api = {
       ipcRenderer.invoke('movimientos:create', input)
   },
   areas: {
-    list: (): Promise<Area[] | { error: string }> => ipcRenderer.invoke('areas:list')
+    list: (): Promise<Area[] | { error: string }> => ipcRenderer.invoke('areas:list'),
+    ensure: (nombre: string): Promise<Area | { error: string }> =>
+      ipcRenderer.invoke('areas:ensure', { nombre }),
+    getAreasUnicas: (): Promise<string[] | { error: string }> => ipcRenderer.invoke('db:getAreasUnicas')
   }
 };
 

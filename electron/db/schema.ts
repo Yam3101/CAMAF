@@ -7,6 +7,12 @@ const areaNames = ['Casa Club', 'Marina', 'Pueblo', 'Experiencias', 'Oficinas Ad
 
 export function initializeSchema(db: Database.Database, _firstRun: boolean): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS migraciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT UNIQUE NOT NULL,
+      ejecutada_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS areas (
       id TEXT PRIMARY KEY,
       nombre TEXT NOT NULL UNIQUE,
@@ -79,6 +85,7 @@ export function initializeSchema(db: Database.Database, _firstRun: boolean): voi
   seedAreas(db);
   seedAdmin(db);
   seedInventory(db);
+  runMigrations(db);
 }
 
 function seedAreas(db: Database.Database): void {
@@ -217,6 +224,38 @@ function ensureArea(db: Database.Database, areaName: string): string {
     `Area importada desde inventario Camaleon`
   );
   return id;
+}
+
+function runMigrations(db: Database.Database): void {
+  const applied = db
+    .prepare('SELECT id FROM migraciones WHERE nombre = ?')
+    .get('limpieza_no_name') as { id: number } | undefined;
+  if (applied) return;
+
+  const transaction = db.transaction(() => {
+    const sinAreaId = ensureArea(db, 'SIN ÁREA');
+    const dirtyAreas = db
+      .prepare(
+        `SELECT id FROM areas
+         WHERE TRIM(nombre) = ''
+            OR UPPER(TRIM(nombre)) IN ('NO NAME', 'NONAME', 'NO_NAME', 'N/A')`
+      )
+      .all() as Array<{ id: string }>;
+    const dirtyIds = dirtyAreas.map((area) => area.id).filter((id) => id !== sinAreaId);
+
+    db.prepare('UPDATE assets SET areaId = ? WHERE areaId IS NULL').run(sinAreaId);
+    db.prepare('UPDATE users SET areaId = ? WHERE areaId IS NULL').run(sinAreaId);
+
+    for (const id of dirtyIds) {
+      db.prepare('UPDATE assets SET areaId = ? WHERE areaId = ?').run(sinAreaId, id);
+      db.prepare('UPDATE users SET areaId = ? WHERE areaId = ?').run(sinAreaId, id);
+      db.prepare('DELETE FROM areas WHERE id = ?').run(id);
+    }
+
+    db.prepare('INSERT INTO migraciones (nombre) VALUES (?)').run('limpieza_no_name');
+  });
+
+  transaction();
 }
 
 function ensureImportedUser(

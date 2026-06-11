@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PageSizes, StandardFonts, rgb } from 'pdf-lib';
 import { getDatabase } from '../database';
 import { requireRole, requireSession } from './session';
 import { blankToNull, safeHandle } from './utils';
@@ -172,7 +172,7 @@ function getAssetOrThrow(id: string): Asset {
 
 async function createResguardoPdf(resguardoId: string, asset: Asset, responsible: User): Promise<string> {
   const document = await PDFDocument.create();
-  const page = document.addPage([612, 792]);
+  const page = document.addPage(PageSizes.A4);
   const font = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const slate = rgb(0.12, 0.16, 0.23);

@@ -5,8 +5,10 @@ import Badge from "../components/Badge";
 import Modal from "../components/Modal";
 import SearchBar from "../components/SearchBar";
 import Table, { type Column } from "../components/Table";
+import ComboBox from "../components/ui/ComboBox";
 import { useAuth } from "../hooks/useAuth";
 import { generarPDFAlta, generarPDFBaja } from "../lib/pdfGenerator";
+import { normalizar } from "../lib/stringUtils";
 import type {
 	Area,
 	Asset,
@@ -64,7 +66,15 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 	const [status, setStatus] = useState<AssetStatus | "">("");
 	const [editing, setEditing] = useState<Asset | null>(null);
 	const [form, setForm] = useState<AssetInput>(emptyForm);
+	const [areaName, setAreaName] = useState("");
+	const [responsableName, setResponsableName] = useState("");
 	const [modalOpen, setModalOpen] = useState(false);
+	const [pendingUser, setPendingUser] = useState<{
+		nombre: string;
+		areaId: string;
+		areaNombre: string;
+		payload: AssetInput;
+	} | null>(null);
 	const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
 	const [bajaModalOpen, setBajaModalOpen] = useState(false);
 	const [bajaMotivo, setBajaMotivo] = useState("");
@@ -87,7 +97,7 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 		const [assetResponse, areaResponse, userResponse] = await Promise.all([
 			window.camaf.assets.list(filters),
 			window.camaf.areas.list(),
-			user?.rol === "admin" ? window.camaf.users.list() : Promise.resolve([] as User[]),
+			canEdit ? window.camaf.users.list() : Promise.resolve([] as User[]),
 		]);
 
 		if (isIpcError(assetResponse)) {
@@ -115,6 +125,8 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 	const openCreate = (): void => {
 		setEditing(null);
 		setForm(emptyForm);
+		setAreaName("");
+		setResponsableName("");
 		setModalOpen(true);
 	};
 
@@ -134,14 +146,36 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 			fechaAdquisicion: asset.fechaAdquisicion ?? "",
 			notas: asset.notas ?? "",
 		});
+		setAreaName(asset.areaNombre ?? "");
+		setResponsableName(asset.responsableNombre ?? "");
 		setModalOpen(true);
 	};
 
 	const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
 		event.preventDefault();
+		const resolvedAreaId = await resolveAreaId(areaName);
+		if (resolvedAreaId === null) return;
+
+		const payload: AssetInput = { ...form, areaId: resolvedAreaId };
+		const responsable = findUserByName(responsableName);
+		if (responsableName.trim() && !responsable) {
+			setPendingUser({
+				nombre: responsableName.trim(),
+				areaId: resolvedAreaId,
+				areaNombre: areaName.trim() || "SIN ÁREA",
+				payload,
+			});
+			return;
+		}
+
+		payload.responsableId = responsableName.trim() ? responsable?.id ?? "" : "";
+		await saveAsset(payload);
+	};
+
+	const saveAsset = async (payload: AssetInput): Promise<void> => {
 		const response = editing
-			? await window.camaf.assets.update(editing.id, form)
-			: await window.camaf.assets.create(form);
+			? await window.camaf.assets.update(editing.id, payload)
+			: await window.camaf.assets.create(payload);
 
 		if (isIpcError(response)) {
 			notify({ type: "error", message: response.error });
@@ -152,6 +186,52 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 		setModalOpen(false);
 		await load();
 	};
+
+	const confirmCreateUserAndSave = async (): Promise<void> => {
+		if (!pendingUser) return;
+		const response = await window.camaf.users.ensureBasic({
+			nombre: pendingUser.nombre,
+			areaId: pendingUser.areaId,
+		});
+
+		if (isIpcError(response)) {
+			notify({ type: "error", message: response.error });
+			return;
+		}
+
+		setUsers((current) => {
+			if (current.some((person) => person.id === response.id)) return current;
+			return [...current, response].sort((a, b) => a.nombre.localeCompare(b.nombre));
+		});
+		setPendingUser(null);
+		await saveAsset({ ...pendingUser.payload, responsableId: response.id });
+	};
+
+	const resolveAreaId = async (name: string): Promise<string | null> => {
+		const trimmed = name.trim();
+		if (!trimmed) return "";
+
+		const existing = findAreaByName(trimmed);
+		if (existing) return existing.id;
+
+		const response = await window.camaf.areas.ensure(trimmed);
+		if (isIpcError(response)) {
+			notify({ type: "error", message: response.error });
+			return null;
+		}
+
+		setAreas((current) => {
+			if (current.some((area) => area.id === response.id)) return current;
+			return [...current, response].sort((a, b) => a.nombre.localeCompare(b.nombre));
+		});
+		return response.id;
+	};
+
+	const findAreaByName = (name: string): Area | undefined =>
+		areas.find((area) => normalizar(area.nombre) === normalizar(name));
+
+	const findUserByName = (name: string): User | undefined =>
+		users.find((person) => normalizar(person.nombre) === normalizar(name));
 
 	const remove = async (asset: Asset): Promise<void> => {
 		if (!window.confirm(`Eliminar ${asset.nombre}?`)) return;
@@ -367,8 +447,28 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 					<Field label="Modelo" value={form.modelo ?? ""} onChange={(value) => setForm({ ...form, modelo: value })} />
 					<Field label="No. Serie" value={form.numeroSerie ?? ""} onChange={(value) => setForm({ ...form, numeroSerie: value })} />
 					<FormSelect label="Status" value={form.status ?? "activo"} onChange={(value) => setForm({ ...form, status: value as AssetStatus })} options={assetStatuses} />
-					<FormSelect label="Área" value={form.areaId ?? ""} onChange={(value) => setForm({ ...form, areaId: value })} options={areas.map((area) => ({ value: area.id, label: area.nombre }))} emptyLabel="Sin área" />
-					<FormSelect label="Responsable" value={form.responsableId ?? ""} onChange={(value) => setForm({ ...form, responsableId: value })} options={users.map((person) => ({ value: person.id, label: person.nombre }))} emptyLabel="Sin responsable" />
+					<ComboBox
+						label="Área"
+						items={areas.map((area) => area.nombre)}
+						value={areaName}
+						onChange={(value) => {
+							setAreaName(value);
+							setForm({ ...form, areaId: findAreaByName(value)?.id ?? "" });
+						}}
+						allowNew
+						placeholder="Buscar o escribir área..."
+					/>
+					<ComboBox
+						label="Responsable"
+						items={users.map((person) => person.nombre)}
+						value={responsableName}
+						onChange={(value) => {
+							setResponsableName(value);
+							setForm({ ...form, responsableId: findUserByName(value)?.id ?? "" });
+						}}
+						allowNew
+						placeholder="Buscar o agregar usuario..."
+					/>
 					<Field label="Fecha adquisición" type="date" value={form.fechaAdquisicion ?? ""} onChange={(value) => setForm({ ...form, fechaAdquisicion: value })} />
 					<label className="form-group form-span-full">
 						<span className="form-label">Notas</span>
@@ -387,6 +487,27 @@ export default function Assets({ navigate, notify }: AssetsProps) {
 						</button>
 					</div>
 				</form>
+			</Modal>
+
+			<Modal
+				open={Boolean(pendingUser)}
+				title="Crear usuario"
+				onClose={() => setPendingUser(null)}
+			>
+				<div className="form-grid">
+					<p className="form-helper form-span-full">
+						El usuario "{pendingUser?.nombre}" no existe en el sistema. Deseas
+						crearlo con el área "{pendingUser?.areaNombre}"?
+					</p>
+					<div className="form-actions">
+						<button type="button" onClick={() => setPendingUser(null)} className="secondary-button">
+							Cancelar
+						</button>
+						<button type="button" className="primary-button" onClick={() => void confirmCreateUserAndSave()}>
+							Crear y asignar
+						</button>
+					</div>
+				</div>
 			</Modal>
 
 			<Modal

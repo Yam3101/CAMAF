@@ -3,12 +3,14 @@ import re
 import sys
 import unicodedata
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import openpyxl
 
 
 SPECIAL_RESPONSIBLES = {"", "BAJA", "STOCK", "S/N", "S.N.", "SN", "N/A", "NA"}
+DIRTY_AREAS = {"", "NO NAME", "NONAME", "N/A", "NO_NAME"}
 ASSET_SHEETS = [
     "PC",
     "Lap Top",
@@ -33,10 +35,80 @@ def clean(value):
     return re.sub(r"\s+", " ", text)
 
 
+def title_case(value):
+    text = clean(value) or ""
+    return " ".join(part.capitalize() for part in text.split())
+
+
+def normalize_user_name(value):
+    return title_case(value)
+
+
+def normalize_area(value, stats=None):
+    text = clean(value)
+    if text is None or text.upper() in DIRTY_AREAS or text.upper().replace(" ", "") in DIRTY_AREAS:
+        if stats is not None:
+            stats["no_name_cleaned"] += 1
+        return "SIN ÁREA"
+    return text.upper()
+
+
+def normalize_serial(value):
+    text = clean(value)
+    if text is None:
+        return None
+    return re.sub(r"\s+", "", text.upper())
+
+
+def normalize_asset_name(value):
+    return title_case(value)
+
+
 def normalize_key(value):
     text = clean(value) or ""
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def asset_unique_key(asset):
+    serial = asset.get("numeroSerie")
+    if serial:
+        return f"serial:{clean(serial)}"
+    parts = [
+        asset.get("nombre"),
+        asset.get("marca"),
+        asset.get("modelo"),
+        asset.get("areaNombre"),
+    ]
+    return "fallback:" + "|".join(normalize_key(part) for part in parts)
+
+
+def consolidate_similar_areas(users, assets, stats):
+    counts = {}
+    for record in list(users.values()) + assets:
+        area = record.get("areaNombre")
+        if area:
+            counts[area] = counts.get(area, 0) + 1
+
+    areas = sorted(counts)
+    replacements = {}
+    for index, area in enumerate(areas):
+        if area in replacements:
+            continue
+        for other in areas[index + 1:]:
+            if other in replacements:
+                continue
+            ratio = SequenceMatcher(None, normalize_key(area), normalize_key(other)).ratio()
+            if ratio > 0.85:
+                keep, replace = (area, other) if counts[area] >= counts[other] else (other, area)
+                replacements[replace] = keep
+                stats["areas_consolidated"] += 1
+                print(f"Área '{replace}' consolidada en '{keep}'")
+
+    for record in list(users.values()) + assets:
+        area = record.get("areaNombre")
+        if area in replacements:
+            record["areaNombre"] = replacements[area]
 
 
 def is_missing_code(value):
@@ -101,25 +173,34 @@ def main():
     input_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
     workbook = openpyxl.load_workbook(input_path, data_only=True)
+    stats = {
+        "users_inserted": 0,
+        "users_updated": 0,
+        "assets_inserted": 0,
+        "assets_updated": 0,
+        "areas_consolidated": 0,
+        "no_name_cleaned": 0,
+    }
 
     users = {}
     if "USUARIOS" in workbook.sheetnames:
         sheet = workbook["USUARIOS"]
         for row in sheet.iter_rows(min_row=2, values_only=True):
-            name = clean(row[0] if len(row) > 0 else None)
+            name = normalize_user_name(row[0] if len(row) > 0 else None)
             if not name:
                 continue
             key = normalize_key(name)
+            stats["users_updated" if key in users else "users_inserted"] += 1
             users[key] = {
                 "nombre": name,
                 "email": slug_email(name),
-                "areaNombre": clean(row[2] if len(row) > 2 else None),
+                "areaNombre": normalize_area(row[2] if len(row) > 2 else None, stats),
                 "puesto": clean(row[3] if len(row) > 3 else None),
                 "employeeId": clean(row[1] if len(row) > 1 else None),
             }
 
     assets = []
-    seen = set()
+    asset_index = {}
     for sheet_name in ASSET_SHEETS:
         if sheet_name not in workbook.sheetnames:
             continue
@@ -151,26 +232,23 @@ def main():
             if not equipo and not marca and not modelo and is_missing_code(serial) and is_missing_code(internal_id):
                 continue
 
-            serial = None if is_missing_code(serial) else serial
+            serial = None if is_missing_code(serial) else normalize_serial(serial)
             internal_id = None if is_missing_code(internal_id) else internal_id
             inventory_number = None if is_missing_code(inventory_number) else inventory_number
 
-            unique_key = serial or f"{sheet_name}:{internal_id or ''}:{inventory_number or ''}:{consecutivo or len(assets)}"
-            if unique_key in seen:
-                continue
-            seen.add(unique_key)
-
-            area_name = departamento or ubicacion or "Casa Club"
+            area_name = normalize_area(departamento or ubicacion, stats)
             responsible_key = normalize_key(responsable)
             responsible_is_special = responsible_key in {normalize_key(item) for item in SPECIAL_RESPONSIBLES}
             if responsable and not responsible_is_special and responsible_key not in users:
+                normalized_responsable = normalize_user_name(responsable)
                 users[responsible_key] = {
-                    "nombre": responsable,
-                    "email": slug_email(responsable),
+                    "nombre": normalized_responsable,
+                    "email": slug_email(normalized_responsable),
                     "areaNombre": area_name,
                     "puesto": None,
                     "employeeId": None,
                 }
+                stats["users_inserted"] += 1
 
             notes_parts = [
                 f"Departamento: {departamento}" if departamento else None,
@@ -188,23 +266,29 @@ def main():
             if not responsable or normalize_key(responsable) in {normalize_key("STOCK"), normalize_key("S/N"), normalize_key("S.N.")}:
                 status = "activo"
 
-            nombre = " ".join(part for part in [equipo, marca, modelo] if part) or f"Activo {internal_id or serial or consecutivo}"
-            assets.append(
-                {
-                    "internalId": internal_id,
-                    "inventoryNumber": inventory_number,
-                    "nombre": nombre,
-                    "tipo": tipo_from(equipo, sheet_name),
-                    "marca": marca,
-                    "modelo": modelo,
-                    "numeroSerie": serial,
-                    "status": status,
-                    "areaNombre": area_name,
-                    "responsableNombre": None if responsible_is_special else responsable,
-                    "fechaAdquisicion": fecha,
-                    "notas": " | ".join(part for part in notes_parts if part) or None,
-                }
-            )
+            nombre = normalize_asset_name(" ".join(part for part in [equipo, marca, modelo] if part) or f"Activo {internal_id or serial or consecutivo}")
+            asset_record = {
+                "internalId": internal_id,
+                "inventoryNumber": inventory_number,
+                "nombre": nombre,
+                "tipo": tipo_from(equipo, sheet_name),
+                "marca": clean(marca),
+                "modelo": clean(modelo),
+                "numeroSerie": serial,
+                "status": status,
+                "areaNombre": area_name,
+                "responsableNombre": None if responsible_is_special else normalize_user_name(responsable),
+                "fechaAdquisicion": fecha,
+                "notas": " | ".join(part for part in notes_parts if part) or None,
+            }
+            unique_key = asset_unique_key(asset_record)
+            if unique_key in asset_index:
+                assets[asset_index[unique_key]].update(asset_record)
+                stats["assets_updated"] += 1
+            else:
+                asset_index[unique_key] = len(assets)
+                assets.append(asset_record)
+                stats["assets_inserted"] += 1
 
     used_internal_ids = set()
     for asset in assets:
@@ -216,6 +300,8 @@ def main():
         else:
             used_internal_ids.add(internal_id)
 
+    consolidate_similar_areas(users, assets, stats)
+
     output = {
         "source": input_path.name,
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
@@ -224,7 +310,12 @@ def main():
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"users": len(output["users"]), "assets": len(output["assets"])}, ensure_ascii=False))
+    print(f"Usuarios insertados:   {stats['users_inserted']}")
+    print(f"Usuarios actualizados: {stats['users_updated']}")
+    print(f"Activos insertados:    {stats['assets_inserted']}")
+    print(f"Activos actualizados:  {stats['assets_updated']}")
+    print(f"Áreas consolidadas:    {stats['areas_consolidated']}")
+    print(f"Registros \"NO NAME\" limpiados: {stats['no_name_cleaned']}")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PageSizes, StandardFonts, rgb } from "pdf-lib";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
@@ -18,6 +18,12 @@ const inventorySeed = {
 const areaNames = ["Casa Club", "Marina", "Pueblo", "Experiencias", "Oficinas Administrativas"];
 function initializeSchema(db2, _firstRun) {
   db2.exec(`
+    CREATE TABLE IF NOT EXISTS migraciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT UNIQUE NOT NULL,
+      ejecutada_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS areas (
       id TEXT PRIMARY KEY,
       nombre TEXT NOT NULL UNIQUE,
@@ -89,6 +95,7 @@ function initializeSchema(db2, _firstRun) {
   seedAreas(db2);
   seedAdmin(db2);
   seedInventory(db2);
+  runMigrations(db2);
 }
 function seedAreas(db2) {
   const insert = db2.prepare("INSERT OR IGNORE INTO areas (id, nombre, descripcion) VALUES (?, ?, ?)");
@@ -180,6 +187,28 @@ function ensureArea(db2, areaName) {
   );
   return id;
 }
+function runMigrations(db2) {
+  const applied = db2.prepare("SELECT id FROM migraciones WHERE nombre = ?").get("limpieza_no_name");
+  if (applied) return;
+  const transaction = db2.transaction(() => {
+    const sinAreaId = ensureArea(db2, "SIN ÁREA");
+    const dirtyAreas = db2.prepare(
+      `SELECT id FROM areas
+         WHERE TRIM(nombre) = ''
+            OR UPPER(TRIM(nombre)) IN ('NO NAME', 'NONAME', 'NO_NAME', 'N/A')`
+    ).all();
+    const dirtyIds = dirtyAreas.map((area) => area.id).filter((id) => id !== sinAreaId);
+    db2.prepare("UPDATE assets SET areaId = ? WHERE areaId IS NULL").run(sinAreaId);
+    db2.prepare("UPDATE users SET areaId = ? WHERE areaId IS NULL").run(sinAreaId);
+    for (const id of dirtyIds) {
+      db2.prepare("UPDATE assets SET areaId = ? WHERE areaId = ?").run(sinAreaId, id);
+      db2.prepare("UPDATE users SET areaId = ? WHERE areaId = ?").run(sinAreaId, id);
+      db2.prepare("DELETE FROM areas WHERE id = ?").run(id);
+    }
+    db2.prepare("INSERT INTO migraciones (nombre) VALUES (?)").run("limpieza_no_name");
+  });
+  transaction();
+}
 function ensureImportedUser(db2, user, areaId, passwordHash) {
   const existing = db2.prepare("SELECT id FROM users WHERE lower(email) = lower(?)").get(user.email);
   if (existing) return existing.id;
@@ -251,8 +280,51 @@ function blankToNull(value) {
 function registerAreaHandlers() {
   safeHandle("areas:list", () => {
     requireSession();
-    return getDatabase().prepare("SELECT id, nombre, descripcion, activo, createdAt, updatedAt FROM areas ORDER BY nombre").all();
+    return getDatabase().prepare(
+      `SELECT id, nombre, descripcion, activo, createdAt, updatedAt
+         FROM areas
+         WHERE TRIM(nombre) <> ''
+           AND UPPER(TRIM(nombre)) NOT IN ('NO NAME', 'NONAME', 'NO_NAME', 'N/A')
+         ORDER BY nombre`
+    ).all();
   });
+  safeHandle("areas:ensure", (_event, input) => {
+    requireSession();
+    const nombre = cleanAreaName(input.nombre);
+    const db2 = getDatabase();
+    const existing = db2.prepare(
+      `SELECT id, nombre, descripcion, activo, createdAt, updatedAt
+         FROM areas
+         WHERE UPPER(TRIM(nombre)) = UPPER(TRIM(?))`
+    ).get(nombre);
+    if (existing) return existing;
+    const id = randomUUID();
+    db2.prepare("INSERT INTO areas (id, nombre, descripcion) VALUES (?, ?, ?)").run(
+      id,
+      nombre,
+      "Area creada desde autocompletado"
+    );
+    return db2.prepare("SELECT id, nombre, descripcion, activo, createdAt, updatedAt FROM areas WHERE id = ?").get(id);
+  });
+  safeHandle("db:getAreasUnicas", () => {
+    requireSession();
+    const rows = getDatabase().prepare(
+      `SELECT DISTINCT TRIM(nombre) AS area
+         FROM areas
+         WHERE nombre IS NOT NULL
+           AND TRIM(nombre) <> ''
+           AND UPPER(TRIM(nombre)) NOT IN ('NO NAME', 'NONAME', 'NO_NAME', 'N/A')
+         ORDER BY area ASC`
+    ).all();
+    return rows.map((row) => row.area);
+  });
+}
+function cleanAreaName(value) {
+  const text = value.trim().replace(/\s+/g, " ");
+  if (!text || ["NO NAME", "NONAME", "NO_NAME", "N/A"].includes(text.toUpperCase())) {
+    return "SIN ÁREA";
+  }
+  return text;
 }
 const assetSelect = `
   SELECT assets.id, assets.internalId, assets.inventoryNumber, assets.nombre, assets.tipo,
@@ -392,7 +464,7 @@ function getAssetOrThrow(id) {
 }
 async function createResguardoPdf(resguardoId, asset, responsible) {
   const document = await PDFDocument.create();
-  const page = document.addPage([612, 792]);
+  const page = document.addPage(PageSizes.A4);
   const font = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const slate = rgb(0.12, 0.16, 0.23);
@@ -545,7 +617,7 @@ const userSelect = `
 `;
 function registerUserHandlers() {
   safeHandle("users:list", () => {
-    requireRole(["admin"]);
+    requireRole(["admin", "supervisor"]);
     return getDatabase().prepare(`${userSelect} ORDER BY users.nombre`).all();
   });
   safeHandle("users:create", (_event, input) => {
@@ -564,6 +636,28 @@ function registerUserHandlers() {
       input.nombre.trim(),
       input.rol,
       input.status ?? "activo",
+      blankToNull(input.areaId)
+    );
+    return getUserOrThrow(id);
+  });
+  safeHandle("users:ensureBasic", (_event, input) => {
+    requireRole(["admin", "supervisor"]);
+    const nombre = input.nombre.trim().replace(/\s+/g, " ");
+    if (!nombre) throw new Error("El nombre es obligatorio");
+    const db2 = getDatabase();
+    const existing = db2.prepare(`${userSelect} WHERE UPPER(TRIM(users.nombre)) = UPPER(TRIM(?))`).get(nombre);
+    if (existing) return existing;
+    const id = randomUUID();
+    db2.prepare(
+      `INSERT INTO users (id, email, password, nombre, rol, status, areaId)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      uniqueEmailForName(db2, nombre),
+      bcrypt.hashSync(randomUUID(), 12),
+      nombre,
+      "usuario",
+      "activo",
       blankToNull(input.areaId)
     );
     return getUserOrThrow(id);
@@ -616,6 +710,16 @@ function getUserOrThrow(id) {
   const user = getDatabase().prepare(`${userSelect} WHERE users.id = ?`).get(id);
   if (!user) throw new Error("Usuario no encontrado");
   return user;
+}
+function uniqueEmailForName(db2, nombre) {
+  const base = nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "usuario";
+  let email = `${base}@camaf.local`;
+  let suffix = 2;
+  while (db2.prepare("SELECT id FROM users WHERE lower(email) = lower(?)").get(email)) {
+    email = `${base}.${suffix}@camaf.local`;
+    suffix += 1;
+  }
+  return email;
 }
 function registerIpcHandlers() {
   registerAuthHandlers();

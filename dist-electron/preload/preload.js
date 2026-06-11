@@ -17,6 +17,7 @@ const api = {
   users: {
     list: () => electron.ipcRenderer.invoke("users:list"),
     create: (input) => electron.ipcRenderer.invoke("users:create", input),
+    ensureBasic: (input) => electron.ipcRenderer.invoke("users:ensureBasic", input),
     update: (id, data) => electron.ipcRenderer.invoke("users:update", { id, data }),
     delete: (id) => electron.ipcRenderer.invoke("users:delete", { id })
   },
@@ -25,7 +26,9 @@ const api = {
     create: (input) => electron.ipcRenderer.invoke("movimientos:create", input)
   },
   areas: {
-    list: () => electron.ipcRenderer.invoke("areas:list")
+    list: () => electron.ipcRenderer.invoke("areas:list"),
+    ensure: (nombre) => electron.ipcRenderer.invoke("areas:ensure", { nombre }),
+    getAreasUnicas: () => electron.ipcRenderer.invoke("db:getAreasUnicas")
   }
 };
 electron.contextBridge.exposeInMainWorld("camaf", api);

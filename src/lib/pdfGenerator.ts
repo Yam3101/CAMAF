@@ -1,10 +1,9 @@
 // CAMAF — PDF Generator — genera actas de alta y baja de activos fijos.
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, PageSizes, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { Asset, User } from "../types";
 
-const pageWidth = 842;
-const pageHeight = 595;
-const margin = 36;
+const [pageWidth, pageHeight] = PageSizes.A4;
+const margin = 40;
 const headerGreen = rgb(0.063, 0.725, 0.506);
 const darkInk = rgb(0.02, 0.06, 0.11);
 const mutedInk = rgb(0.35, 0.42, 0.52);
@@ -84,7 +83,7 @@ async function generarActa({
 
 	y = drawAssetsTable(context, activos, tipo, y);
 	drawSignatures(context, y);
-	drawFooter(context);
+	drawFooters(context.doc, context.font);
 
 	const bytes = await doc.save();
 	downloadPdf(bytes, `${tipo}-activos-${formatDateForFile(fecha)}.pdf`);
@@ -153,13 +152,13 @@ function drawAssignment(context: PdfContext, usuario: User, y: number): number {
 		color: darkInk,
 	});
 	page.drawText(`Rol: ${usuario.rol}    Área: ${usuario.areaNombre ?? "N/A"}`, {
-		x: margin + 280,
-		y,
+		x: margin,
+		y: y - 13,
 		size: 9,
 		font,
 		color: darkInk,
 	});
-	y -= 16;
+	y -= 29;
 	page.drawText(`Fecha de asignación: ${formatDate(new Date())}`, {
 		x: margin,
 		y,
@@ -180,7 +179,7 @@ function drawReason(context: PdfContext, motivo: string, y: number): number {
 		color: darkInk,
 	});
 	y -= 18;
-	const lines = wrapText(motivo || "N/A", 120);
+	const lines = wrapText(motivo || "N/A", 78);
 	page.drawRectangle({
 		x: margin,
 		y: y - lines.length * 12 - 10,
@@ -211,11 +210,10 @@ function drawAssetsTable(
 	y = drawTableHeader(context, tipo, y);
 
 	activos.forEach((asset, index) => {
-		if (y < 118) {
-			drawFooter(context);
-			context.page = context.doc.addPage([pageWidth, pageHeight]);
+		if (y < 132) {
+			context.page = context.doc.addPage(PageSizes.A4);
 			context.pageNumber += 1;
-			y = drawTableHeader(context, tipo, pageHeight - 44);
+			y = drawTableHeader(context, tipo, pageHeight - 56);
 		}
 
 		const row = [
@@ -231,7 +229,7 @@ function drawAssetsTable(
 		];
 
 		drawTableRow(context, row, y);
-		y -= 24;
+		y -= 28;
 	});
 
 	return y - 18;
@@ -272,10 +270,10 @@ function drawTableRow(context: PdfContext, row: string[], y: number): void {
 		color: lineColor,
 	});
 	row.forEach((cell, index) => {
-		page.drawText(truncate(cell, index === 2 ? 22 : 16), {
+		page.drawText(truncate(cell, columnMaxLength(index)), {
 			x: columnX(index),
 			y,
-			size: 7,
+			size: 6.5,
 			font,
 			color: darkInk,
 		});
@@ -284,17 +282,17 @@ function drawTableRow(context: PdfContext, row: string[], y: number): void {
 
 function drawSignatures(context: PdfContext, y: number): void {
 	const { page, font } = context;
-	const startY = Math.max(y - 16, 58);
+	const startY = Math.max(y - 18, 78);
 	const columns = [
 		{ label: "Responsable de entrega", x: margin },
-		{ label: "Firma y sello", x: margin + 260 },
-		{ label: "Recibido por", x: margin + 520 },
+		{ label: "Firma y sello", x: margin + 174 },
+		{ label: "Recibido por", x: margin + 348 },
 	];
 
 	columns.forEach((column) => {
 		page.drawLine({
 			start: { x: column.x, y: startY },
-			end: { x: column.x + 190, y: startY },
+			end: { x: column.x + 138, y: startY },
 			thickness: 1,
 			color: lineColor,
 		});
@@ -308,8 +306,12 @@ function drawSignatures(context: PdfContext, y: number): void {
 	});
 }
 
-function drawFooter(context: PdfContext): void {
-	const { page, font } = context;
+function drawFooters(doc: PDFDocument, font: PDFFont): void {
+	const pages = doc.getPages();
+	pages.forEach((page, index) => drawFooter(page, font, index + 1, pages.length));
+}
+
+function drawFooter(page: PDFPage, font: PDFFont, pageNumber: number, totalPages: number): void {
 	page.drawText("Documento generado por CAMAF Mayakoba", {
 		x: margin,
 		y: 24,
@@ -317,8 +319,8 @@ function drawFooter(context: PdfContext): void {
 		font,
 		color: mutedInk,
 	});
-	page.drawText(`Página ${context.pageNumber}`, {
-		x: pageWidth - margin - 50,
+	page.drawText(`Página ${pageNumber} de ${totalPages}`, {
+		x: pageWidth - margin - 86,
 		y: 24,
 		size: 8,
 		font,
@@ -327,8 +329,13 @@ function drawFooter(context: PdfContext): void {
 }
 
 function columnX(index: number): number {
-	const positions = [36, 60, 132, 248, 330, 442, 506, 610, 704];
+	const positions = [40, 62, 118, 214, 282, 366, 416, 482, 532];
 	return positions[index] ?? margin;
+}
+
+function columnMaxLength(index: number): number {
+	const lengths = [3, 12, 20, 12, 16, 10, 12, 10, 10];
+	return lengths[index] ?? 12;
 }
 
 function wrapText(text: string, maxLength: number): string[] {

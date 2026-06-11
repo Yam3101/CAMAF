@@ -1,0 +1,58 @@
+.combo-box {
+	position: relative;
+	min-width: 0;
+}
+
+.combo-box__input {
+	position: relative;
+	z-index: 1;
+}
+
+.combo-box__menu {
+	position: absolute;
+	z-index: 80;
+	top: calc(100% + 8px);
+	left: 0;
+	right: 0;
+	max-height: 244px;
+	overflow-y: auto;
+	border: 1px solid var(--camaf-border-strong);
+	border-radius: 8px;
+	background: rgba(7, 17, 31, 0.98);
+	box-shadow: var(--camaf-shadow);
+	padding: 6px;
+}
+
+.combo-box__option {
+	display: block;
+	width: 100%;
+	border: 0;
+	border-radius: 6px;
+	padding: 10px 12px;
+	color: var(--camaf-text-soft);
+	background: transparent;
+	text-align: left;
+	font: inherit;
+	cursor: pointer;
+}
+
+.combo-box__option:hover,
+.combo-box__option--active {
+	color: var(--camaf-text);
+	background: rgba(16, 185, 129, 0.13);
+}
+
+.combo-box__option--suggestion {
+	color: var(--camaf-info);
+	background: rgba(56, 189, 248, 0.09);
+}
+
+.combo-box__option--new {
+	color: var(--camaf-accent-soft);
+	font-weight: 700;
+}
+
+.combo-box__empty {
+	padding: 10px 12px;
+	color: var(--camaf-muted);
+}

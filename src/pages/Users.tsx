@@ -4,6 +4,8 @@ import type { Toast } from "../App";
 import Badge from "../components/Badge";
 import Modal from "../components/Modal";
 import Table, { type Column } from "../components/Table";
+import ComboBox from "../components/ui/ComboBox";
+import { normalizar } from "../lib/stringUtils";
 import type { Area, Role, User, UserInput, UserStatus } from "../types";
 import { isIpcError } from "../types";
 import "@/styles/users.css";
@@ -30,6 +32,7 @@ export default function Users({ notify }: UsersProps) {
 	const [areas, setAreas] = useState<Area[]>([]);
 	const [editing, setEditing] = useState<User | null>(null);
 	const [form, setForm] = useState<UserInput>(emptyForm);
+	const [areaName, setAreaName] = useState("");
 	const [modalOpen, setModalOpen] = useState(false);
 
 	async function load() {
@@ -58,6 +61,7 @@ export default function Users({ notify }: UsersProps) {
 	const openCreate = (): void => {
 		setEditing(null);
 		setForm(emptyForm);
+		setAreaName("");
 		setModalOpen(true);
 	};
 
@@ -71,12 +75,17 @@ export default function Users({ notify }: UsersProps) {
 			status: row.status,
 			areaId: row.areaId ?? "",
 		});
+		setAreaName(row.areaNombre ?? "");
 		setModalOpen(true);
 	};
 
 	const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
 		event.preventDefault();
-		const payload = editing && !form.password ? { ...form, password: undefined } : form;
+		const resolvedAreaId = await resolveAreaId(areaName);
+		if (resolvedAreaId === null) return;
+		const payload = editing && !form.password
+			? { ...form, areaId: resolvedAreaId, password: undefined }
+			: { ...form, areaId: resolvedAreaId };
 		const response = editing
 			? await window.camaf.users.update(editing.id, payload)
 			: await window.camaf.users.create(payload);
@@ -90,6 +99,29 @@ export default function Users({ notify }: UsersProps) {
 		setModalOpen(false);
 		await load();
 	};
+
+	const resolveAreaId = async (name: string): Promise<string | null> => {
+		const trimmed = name.trim();
+		if (!trimmed) return "";
+
+		const existing = findAreaByName(trimmed);
+		if (existing) return existing.id;
+
+		const response = await window.camaf.areas.ensure(trimmed);
+		if (isIpcError(response)) {
+			notify({ type: "error", message: response.error });
+			return null;
+		}
+
+		setAreas((current) => {
+			if (current.some((area) => area.id === response.id)) return current;
+			return [...current, response].sort((a, b) => a.nombre.localeCompare(b.nombre));
+		});
+		return response.id;
+	};
+
+	const findAreaByName = (name: string): Area | undefined =>
+		areas.find((area) => normalizar(area.nombre) === normalizar(name));
 
 	const remove = async (row: User): Promise<void> => {
 		if (!window.confirm(`Eliminar ${row.nombre}?`)) return;
@@ -162,12 +194,16 @@ export default function Users({ notify }: UsersProps) {
 					<Field label={editing ? "Nuevo password" : "Password"} type="password" value={form.password ?? ""} onChange={(value) => setForm({ ...form, password: value })} required={!editing} />
 					<FormSelect label="Rol" value={form.rol ?? "usuario"} onChange={(value) => setForm({ ...form, rol: value as Role })} options={roles} />
 					<FormSelect label="Status" value={form.status ?? "activo"} onChange={(value) => setForm({ ...form, status: value as UserStatus })} options={statuses} />
-					<FormSelect
+					<ComboBox
 						label="Área"
-						value={form.areaId ?? ""}
-						onChange={(value) => setForm({ ...form, areaId: value })}
-						options={areas.map((area) => ({ value: area.id, label: area.nombre }))}
-						emptyLabel="Sin área"
+						items={areas.map((area) => area.nombre)}
+						value={areaName}
+						onChange={(value) => {
+							setAreaName(value);
+							setForm({ ...form, areaId: findAreaByName(value)?.id ?? "" });
+						}}
+						allowNew
+						placeholder="Buscar o escribir área..."
 					/>
 					<div className="form-actions">
 						<button type="button" onClick={() => setModalOpen(false)} className="secondary-button">

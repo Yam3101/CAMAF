@@ -14,7 +14,7 @@ const userSelect = `
 
 export function registerUserHandlers(): void {
   safeHandle<void, User[]>('users:list', () => {
-    requireRole(['admin']);
+    requireRole(['admin', 'supervisor']);
     return getDatabase().prepare(`${userSelect} ORDER BY users.nombre`).all() as User[];
   });
 
@@ -39,6 +39,34 @@ export function registerUserHandlers(): void {
         input.status ?? 'activo',
         blankToNull(input.areaId)
       );
+
+    return getUserOrThrow(id);
+  });
+
+  safeHandle<{ nombre: string; areaId?: string | null }, User>('users:ensureBasic', (_event, input) => {
+    requireRole(['admin', 'supervisor']);
+    const nombre = input.nombre.trim().replace(/\s+/g, ' ');
+    if (!nombre) throw new Error('El nombre es obligatorio');
+
+    const db = getDatabase();
+    const existing = db
+      .prepare(`${userSelect} WHERE UPPER(TRIM(users.nombre)) = UPPER(TRIM(?))`)
+      .get(nombre) as User | undefined;
+    if (existing) return existing;
+
+    const id = randomUUID();
+    db.prepare(
+      `INSERT INTO users (id, email, password, nombre, rol, status, areaId)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      uniqueEmailForName(db, nombre),
+      bcrypt.hashSync(randomUUID(), 12),
+      nombre,
+      'usuario',
+      'activo',
+      blankToNull(input.areaId)
+    );
 
     return getUserOrThrow(id);
   });
@@ -95,4 +123,21 @@ function getUserOrThrow(id: string): User {
   const user = getDatabase().prepare(`${userSelect} WHERE users.id = ?`).get(id) as User | undefined;
   if (!user) throw new Error('Usuario no encontrado');
   return user;
+}
+
+function uniqueEmailForName(db: ReturnType<typeof getDatabase>, nombre: string): string {
+  const base = nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '') || 'usuario';
+
+  let email = `${base}@camaf.local`;
+  let suffix = 2;
+  while (db.prepare('SELECT id FROM users WHERE lower(email) = lower(?)').get(email)) {
+    email = `${base}.${suffix}@camaf.local`;
+    suffix += 1;
+  }
+  return email;
 }
