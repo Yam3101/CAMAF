@@ -13,14 +13,20 @@ SPECIAL_RESPONSIBLES = {"", "BAJA", "STOCK", "S/N", "S.N.", "SN", "N/A", "NA"}
 DIRTY_AREAS = {"", "NO NAME", "NONAME", "N/A", "NO_NAME"}
 ASSET_SHEETS = [
     "PC",
+    "Desktop",
     "Lap Top",
+    "Lap top",
     "Monitor",
     "Accesorios",
     "Teclado y raton",
+    "Teclado y Raton",
     "UPS",
     "Tablets",
+    "Tablet_Exp",
     "Audio & Video",
     "Audio y Video",
+    "Multimedia",
+    "Pantallas",
 ]
 
 
@@ -166,12 +172,13 @@ def get(row, headers, *keys):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: generate-inventory-seed.py <input.xlsx> <output.json>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("Usage: generate-inventory-seed.py <input.xlsx> <output.json> [unidad]", file=sys.stderr)
         sys.exit(2)
 
     input_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
+    unidad = sys.argv[3] if len(sys.argv) == 4 else "Camaleón"
     workbook = openpyxl.load_workbook(input_path, data_only=True)
     stats = {
         "users_inserted": 0,
@@ -197,6 +204,7 @@ def main():
                 "areaNombre": normalize_area(row[2] if len(row) > 2 else None, stats),
                 "puesto": clean(row[3] if len(row) > 3 else None),
                 "employeeId": clean(row[1] if len(row) > 1 else None),
+                "unidad": unidad,
             }
 
     assets = []
@@ -247,6 +255,7 @@ def main():
                     "areaNombre": area_name,
                     "puesto": None,
                     "employeeId": None,
+                    "unidad": unidad,
                 }
                 stats["users_inserted"] += 1
 
@@ -278,6 +287,8 @@ def main():
                 "status": status,
                 "areaNombre": area_name,
                 "responsableNombre": None if responsible_is_special else normalize_user_name(responsable),
+                "asignadoA": None if responsible_is_special else normalize_user_name(responsable),
+                "unidad": unidad,
                 "fechaAdquisicion": fecha,
                 "notas": " | ".join(part for part in notes_parts if part) or None,
             }
@@ -304,6 +315,7 @@ def main():
 
     output = {
         "source": input_path.name,
+        "unidad": unidad,
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
         "users": sorted(users.values(), key=lambda user: user["nombre"]),
         "assets": assets,

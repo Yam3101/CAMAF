@@ -1,5 +1,4 @@
-export type Role = 'admin' | 'supervisor' | 'usuario';
-export type UserStatus = 'activo' | 'inactivo';
+export type Unidad = 'Camaleón' | 'Experiencias';
 export type AssetType =
   | 'computadora'
   | 'all-in-one'
@@ -16,20 +15,9 @@ export type MovimientoTipo = 'asignacion' | 'reasignacion' | 'baja' | 'mantenimi
 export type Area = {
   id: string;
   nombre: string;
+  unidad: Unidad;
   descripcion: string | null;
   activo: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type User = {
-  id: string;
-  email: string;
-  nombre: string;
-  rol: Role;
-  status: UserStatus;
-  areaId: string | null;
-  areaNombre?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -44,10 +32,10 @@ export type Asset = {
   modelo: string | null;
   numeroSerie: string | null;
   status: AssetStatus;
+  unidad: Unidad;
   areaId: string | null;
   areaNombre?: string | null;
-  responsableId: string | null;
-  responsableNombre?: string | null;
+  asignadoA: string | null;
   fechaAdquisicion: string | null;
   notas: string | null;
   createdAt: string;
@@ -59,17 +47,11 @@ export type Movimiento = {
   assetId: string;
   assetNombre?: string | null;
   assetInternalId?: string | null;
-  usuarioId: string;
-  usuarioNombre?: string | null;
+  asignadoA?: string | null;
   tipo: MovimientoTipo;
   descripcion: string | null;
   fecha: string;
   createdAt: string;
-};
-
-export type LoginInput = {
-  email: string;
-  password: string;
 };
 
 export type AssetInput = {
@@ -81,24 +63,16 @@ export type AssetInput = {
   modelo?: string | null;
   numeroSerie?: string | null;
   status?: AssetStatus;
+  unidad?: Unidad;
   areaId?: string | null;
-  responsableId?: string | null;
+  asignadoA?: string | null;
   fechaAdquisicion?: string | null;
   notas?: string | null;
 };
 
-export type UserInput = {
-  email: string;
-  password?: string;
-  nombre: string;
-  rol: Role;
-  status?: UserStatus;
-  areaId?: string | null;
-};
-
 export type MovimientoInput = {
   assetId: string;
-  usuarioId: string;
+  asignadoA?: string | null;
   tipo: MovimientoTipo;
   descripcion?: string | null;
   fecha?: string | null;
@@ -109,6 +83,7 @@ export type AssetFilters = {
   tipo?: AssetType | '';
   areaId?: string;
   status?: AssetStatus | '';
+  unidad?: Unidad | '';
 };
 
 export type MovimientoFilters = {

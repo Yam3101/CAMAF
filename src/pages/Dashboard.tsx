@@ -3,7 +3,7 @@ import { Archive, ClipboardList, Monitor, Wrench } from "lucide-react";
 import Badge from "../components/Badge";
 import ActivosModal from "../components/ui/ActivosModal";
 import Table, { type Column } from "../components/Table";
-import type { Toast } from "../App";
+import type { Toast } from "../AppBeta";
 import type { Asset, Movimiento } from "../types";
 import { isIpcError } from "../types";
 import "@/styles/dashboard.css";
@@ -101,8 +101,8 @@ export default function Dashboard({ navigate, notify }: DashboardProps) {
 		{ key: "tipo", header: "Tipo", render: (row) => <Badge value={row.tipo} /> },
 		{
 			key: "usuario",
-			header: "Usuario",
-			render: (row) => row.usuarioNombre ?? "N/A",
+			header: "Asignado a",
+			render: (row) => row.asignadoA ?? "N/A",
 		},
 		{
 			key: "descripcion",

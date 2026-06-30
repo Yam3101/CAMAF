@@ -2,7 +2,7 @@ import { app } from 'electron';
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { initializeSchema } from './schema';
+import { initializeSchema } from './schema-beta';
 
 let db: Database.Database | null = null;
 

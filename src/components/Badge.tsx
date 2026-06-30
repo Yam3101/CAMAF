@@ -1,8 +1,8 @@
-import type { AssetStatus, MovimientoTipo, Role, UserStatus } from "../types";
+import type { AssetStatus, MovimientoTipo, Unidad } from "../types";
 import "@/styles/badge.css";
 
 type BadgeProps = {
-	value: AssetStatus | UserStatus | Role | MovimientoTipo | string;
+	value: AssetStatus | MovimientoTipo | Unidad | string;
 };
 
 export default function Badge({ value }: BadgeProps) {

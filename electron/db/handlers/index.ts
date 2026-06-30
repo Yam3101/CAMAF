@@ -1,15 +1,11 @@
-import { registerAreaHandlers } from './areas';
-import { registerAssetHandlers } from './assets';
-import { registerAuthHandlers } from './auth';
-import { registerMovimientoHandlers } from './movimientos';
+import { registerAreaHandlers } from './areas-beta';
+import { registerAssetHandlers } from './assets-beta';
+import { registerMovimientoHandlers } from './movimientos-beta';
 import { registerResguardoHandlers } from './resguardos';
-import { registerUserHandlers } from './users';
 
 export function registerIpcHandlers(): void {
-  registerAuthHandlers();
   registerAreaHandlers();
   registerAssetHandlers();
-  registerUserHandlers();
   registerMovimientoHandlers();
   registerResguardoHandlers();
 }

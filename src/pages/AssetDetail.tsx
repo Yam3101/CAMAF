@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Download } from "lucide-react";
-import type { Toast } from "../App";
+import type { Toast } from "../AppBeta";
 import Badge from "../components/Badge";
 import Table, { type Column } from "../components/Table";
-import { useAuth } from "../hooks/useAuth";
 import type { Asset, Movimiento } from "../types";
 import { isIpcError } from "../types";
 import "@/styles/assets.css";
@@ -15,8 +14,6 @@ type AssetDetailProps = {
 };
 
 export default function AssetDetail({ id, navigate, notify }: AssetDetailProps) {
-	const { user } = useAuth();
-	const canEdit = user?.rol === "admin" || user?.rol === "supervisor";
 	const [asset, setAsset] = useState<Asset | null>(null);
 	const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
 
@@ -61,8 +58,8 @@ export default function AssetDetail({ id, navigate, notify }: AssetDetailProps) 
 		{ key: "tipo", header: "Tipo", render: (row) => <Badge value={row.tipo} /> },
 		{
 			key: "usuario",
-			header: "Usuario",
-			render: (row) => row.usuarioNombre ?? "N/A",
+			header: "Asignado a",
+			render: (row) => row.asignadoA ?? "N/A",
 		},
 		{
 			key: "descripcion",
@@ -92,12 +89,10 @@ export default function AssetDetail({ id, navigate, notify }: AssetDetailProps) 
 						{asset.internalId ?? asset.inventoryNumber ?? asset.id}
 					</p>
 				</div>
-				{canEdit && (
-					<button type="button" onClick={() => void generate()} className="primary-button">
-						<Download size={18} />
-						Generar resguardo
-					</button>
-				)}
+				<button type="button" onClick={() => void generate()} className="primary-button">
+					<Download size={18} />
+					Generar resguardo
+				</button>
 			</header>
 
 			<section className="asset-detail-grid">
@@ -108,7 +103,7 @@ export default function AssetDetail({ id, navigate, notify }: AssetDetailProps) 
 				<Info label="Modelo" value={asset.modelo} />
 				<Info label="No. Serie" value={asset.numeroSerie} />
 				<Info label="Área" value={asset.areaNombre} />
-				<Info label="Responsable" value={asset.responsableNombre} />
+				<Info label="Asignado a" value={asset.asignadoA} />
 				<div className="asset-info-card">
 					<p className="asset-info-card__label">Status</p>
 					<p className="asset-info-card__value">

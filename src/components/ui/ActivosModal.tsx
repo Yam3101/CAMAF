@@ -36,7 +36,7 @@ export default function ActivosModal({
 				asset.nombre,
 				asset.tipo,
 				asset.areaNombre,
-				asset.responsableNombre,
+				asset.asignadoA,
 			]
 				.filter(Boolean)
 				.join(" ")
@@ -111,7 +111,7 @@ export default function ActivosModal({
 										<Badge value={asset.status} />
 									</td>
 									<td>{asset.areaNombre ?? "N/A"}</td>
-									<td>{asset.responsableNombre ?? "N/A"}</td>
+									<td>{asset.asignadoA ?? "N/A"}</td>
 								</tr>
 							))}
 						</tbody>

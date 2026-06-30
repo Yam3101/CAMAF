@@ -4,21 +4,13 @@ import type {
   AssetFilters,
   AssetInput,
   Area,
-  LoginInput,
   Movimiento,
   MovimientoFilters,
   MovimientoInput,
-  User,
-  UserInput
+  Unidad
 } from '../src/types';
 
 const api = {
-  auth: {
-    login: (input: LoginInput): Promise<{ user: User; token: string } | { error: string }> =>
-      ipcRenderer.invoke('auth:login', input),
-    logout: (): Promise<{ success: boolean } | { error: string }> => ipcRenderer.invoke('auth:logout'),
-    me: (): Promise<{ user: User } | null | { error: string }> => ipcRenderer.invoke('auth:me')
-  },
   assets: {
     list: (filters?: AssetFilters): Promise<Asset[] | { error: string }> =>
       ipcRenderer.invoke('assets:list', { filters }),
@@ -28,18 +20,9 @@ const api = {
       ipcRenderer.invoke('assets:update', { id, data }),
     delete: (id: string): Promise<{ success: boolean } | { error: string }> =>
       ipcRenderer.invoke('assets:delete', { id }),
+    assignedNames: (): Promise<string[] | { error: string }> => ipcRenderer.invoke('assets:assignedNames'),
     resguardo: (id: string): Promise<{ pdfPath: string } | { error: string }> =>
       ipcRenderer.invoke('assets:resguardo', { id })
-  },
-  users: {
-    list: (): Promise<User[] | { error: string }> => ipcRenderer.invoke('users:list'),
-    create: (input: UserInput): Promise<User | { error: string }> => ipcRenderer.invoke('users:create', input),
-    ensureBasic: (input: { nombre: string; areaId?: string | null }): Promise<User | { error: string }> =>
-      ipcRenderer.invoke('users:ensureBasic', input),
-    update: (id: string, data: Partial<UserInput>): Promise<User | { error: string }> =>
-      ipcRenderer.invoke('users:update', { id, data }),
-    delete: (id: string): Promise<{ success: boolean } | { error: string }> =>
-      ipcRenderer.invoke('users:delete', { id })
   },
   movimientos: {
     list: (filters?: MovimientoFilters): Promise<Movimiento[] | { error: string }> =>
@@ -48,10 +31,11 @@ const api = {
       ipcRenderer.invoke('movimientos:create', input)
   },
   areas: {
-    list: (): Promise<Area[] | { error: string }> => ipcRenderer.invoke('areas:list'),
-    ensure: (nombre: string): Promise<Area | { error: string }> =>
-      ipcRenderer.invoke('areas:ensure', { nombre }),
-    getAreasUnicas: (): Promise<string[] | { error: string }> => ipcRenderer.invoke('db:getAreasUnicas')
+    list: (unidad?: Unidad): Promise<Area[] | { error: string }> => ipcRenderer.invoke('areas:list', { unidad }),
+    ensure: (nombre: string, unidad?: Unidad): Promise<Area | { error: string }> =>
+      ipcRenderer.invoke('areas:ensure', { nombre, unidad }),
+    getAreasUnicas: (unidad?: Unidad): Promise<string[] | { error: string }> =>
+      ipcRenderer.invoke('db:getAreasUnicas', { unidad })
   }
 };
 

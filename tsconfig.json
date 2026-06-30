@@ -25,6 +25,24 @@
 	},
 
 	"include": ["src", "electron", "vite.config.ts", "electron.vite.config.ts"],
+	"exclude": [
+		"src/App.tsx",
+		"src/components/Layout.tsx",
+		"src/components/Sidebar.tsx",
+		"src/pages/Login.tsx",
+		"src/pages/Assets.tsx",
+		"src/pages/Movimientos.tsx",
+		"src/pages/Users.tsx",
+		"src/hooks/useAuth.ts",
+		"src/lib/pdfGenerator.ts",
+		"electron/db/schema.ts",
+		"electron/db/handlers/areas.ts",
+		"electron/db/handlers/assets.ts",
+		"electron/db/handlers/auth.ts",
+		"electron/db/handlers/movimientos.ts",
+		"electron/db/handlers/session.ts",
+		"electron/db/handlers/users.ts"
+	],
 
 	"references": []
 }
