@@ -5,6 +5,8 @@ import { registerIpcHandlers } from './db/handlers';
 
 let mainWindow: BrowserWindow | null = null;
 
+registerIpcHandlers();
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -28,12 +30,11 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   getDatabase();
-  registerIpcHandlers();
   createWindow();
+});
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
 app.on('window-all-closed', () => {

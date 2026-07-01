@@ -1,33 +1,8 @@
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
-import camaleonSeed from './seed/inventory.json';
-import experienciasSeed from './seed/experiencias.json';
 
-const initialAreas = ['Casa Club', 'Marina', 'Pueblo', 'Experiencias', 'Oficinas Administrativas'];
 const units = ['Camaleón', 'Experiencias'] as const;
 type Unit = (typeof units)[number];
-
-type InventoryAsset = {
-  internalId: string | null;
-  inventoryNumber: string | null;
-  nombre: string;
-  tipo: string;
-  marca: string | null;
-  modelo: string | null;
-  numeroSerie: string | null;
-  status: string;
-  areaNombre: string | null;
-  responsableNombre?: string | null;
-  asignadoA?: string | null;
-  unidad?: string | null;
-  fechaAdquisicion: string | null;
-  notas: string | null;
-};
-
-type InventorySeed = {
-  unidad?: string;
-  assets: InventoryAsset[];
-};
 
 export function initializeSchema(db: Database.Database, _firstRun: boolean): void {
   db.exec(`
@@ -41,10 +16,8 @@ export function initializeSchema(db: Database.Database, _firstRun: boolean): voi
   createCurrentTables(db);
   runBetaMigration(db);
   createCurrentTables(db);
-  seedAreas(db);
-  seedInventory(db, camaleonSeed as InventorySeed, 'Camaleón');
-  seedInventory(db, experienciasSeed as InventorySeed, 'Experiencias');
   runCleanupMigration(db);
+  cleanDuplicates(db);
 }
 
 function createCurrentTables(db: Database.Database): void {
@@ -276,68 +249,6 @@ function copyResguardos(db: Database.Database): void {
   ).run();
 }
 
-function seedAreas(db: Database.Database): void {
-  const insert = db.prepare('INSERT OR IGNORE INTO areas (id, nombre, unidad, descripcion) VALUES (?, ?, ?, ?)');
-  const transaction = db.transaction(() => {
-    for (const unit of units) {
-      for (const name of initialAreas) {
-        insert.run(randomUUID(), name, unit, `Área ${name} de ${unit}`);
-      }
-    }
-  });
-  transaction();
-}
-
-function seedInventory(db: Database.Database, seed: InventorySeed, defaultUnit: Unit): void {
-  const unit = normalizeUnit(seed.unidad ?? defaultUnit);
-  const transaction = db.transaction(() => {
-    const areaIds = new Map<string, string>();
-
-    for (const areaName of collectAreaNames(seed)) {
-      areaIds.set(areaKey(areaName, unit), ensureArea(db, areaName, unit));
-    }
-
-    for (const asset of seed.assets) {
-      const assetUnit = normalizeUnit(asset.unidad ?? unit);
-      const areaId = asset.areaNombre
-        ? areaIds.get(areaKey(asset.areaNombre, assetUnit)) ?? ensureArea(db, asset.areaNombre, assetUnit)
-        : null;
-
-      db.prepare(
-        `INSERT OR IGNORE INTO assets (
-          id, internalId, inventoryNumber, nombre, tipo, marca, modelo, numeroSerie,
-          status, unidad, areaId, asignadoA, fechaAdquisicion, notas
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        randomUUID(),
-        blankToNull(asset.internalId),
-        blankToNull(asset.inventoryNumber),
-        asset.nombre,
-        asset.tipo,
-        blankToNull(asset.marca),
-        blankToNull(asset.modelo),
-        blankToNull(asset.numeroSerie),
-        asset.status,
-        assetUnit,
-        areaId,
-        blankToNull(asset.asignadoA ?? asset.responsableNombre ?? null),
-        blankToNull(asset.fechaAdquisicion),
-        blankToNull(asset.notas)
-      );
-    }
-  });
-
-  transaction();
-}
-
-function collectAreaNames(seed: InventorySeed): string[] {
-  const names = new Set<string>(initialAreas);
-  for (const asset of seed.assets) {
-    if (asset.areaNombre) names.add(asset.areaNombre);
-  }
-  return [...names];
-}
-
 export function ensureArea(db: Database.Database, areaName: string, unidad: string): string {
   const cleanName = normalizeAreaName(areaName);
   const cleanUnit = normalizeUnit(unidad);
@@ -386,6 +297,38 @@ function runCleanupMigration(db: Database.Database): void {
   transaction();
 }
 
+function cleanDuplicates(db: Database.Database): void {
+  if (migrationApplied(db, 'limpieza_duplicados_bug_arranque')) return;
+
+  const transaction = db.transaction(() => {
+    db.exec(`
+      DELETE FROM assets
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM assets
+        WHERE numeroSerie IS NOT NULL
+          AND TRIM(numeroSerie) != ''
+        GROUP BY numeroSerie
+      )
+      AND numeroSerie IS NOT NULL
+      AND TRIM(numeroSerie) != '';
+
+      DELETE FROM assets
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM assets
+        WHERE numeroSerie IS NULL OR TRIM(numeroSerie) = ''
+        GROUP BY nombre, areaId, unidad
+      )
+      AND (numeroSerie IS NULL OR TRIM(numeroSerie) = '');
+    `);
+
+    markMigration(db, 'limpieza_duplicados_bug_arranque');
+  });
+
+  transaction();
+}
+
 function migrationApplied(db: Database.Database, name: string): boolean {
   const row = db.prepare('SELECT id FROM migraciones WHERE nombre = ?').get(name) as { id: number } | undefined;
   return Boolean(row);
@@ -425,14 +368,4 @@ function normalizeAreaName(value: string): string {
 
 function normalizeUnit(value: string): Unit {
   return value === 'Experiencias' ? 'Experiencias' : 'Camaleón';
-}
-
-function areaKey(areaName: string, unidad: string): string {
-  return `${normalizeUnit(unidad)}:${areaName.trim().toLowerCase()}`;
-}
-
-function blankToNull(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
 }
