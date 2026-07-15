@@ -5,6 +5,7 @@ import Badge from "../components/Badge";
 import Modal from "../components/Modal";
 import Table, { type Column } from "../components/Table";
 import ComboBox from "../components/ui/ComboBox";
+import SearchableSelect, { type SearchableSelectOption } from "../components/ui/SearchableSelect";
 import type { Asset, Movimiento, MovimientoInput, MovimientoTipo } from "../types";
 import { isIpcError } from "../types";
 import "@/styles/movimientos.css";
@@ -75,6 +76,25 @@ export default function MovimientosBeta({ notify }: MovimientosProps) {
 		[assets, form.assetId],
 	);
 
+	const assetOptions = useMemo<SearchableSelectOption[]>(
+		() =>
+			assets.map((asset) => ({
+				value: asset.id,
+				label: asset.internalId ? `${asset.internalId} - ${asset.nombre}` : asset.nombre,
+				searchText: [
+					asset.nombre,
+					asset.internalId,
+					asset.inventoryNumber,
+					asset.numeroSerie,
+					asset.marca,
+					asset.modelo,
+				]
+					.filter(Boolean)
+					.join(" "),
+			})),
+		[assets],
+	);
+
 	const openCreate = (): void => {
 		setForm(emptyForm);
 		setModalOpen(true);
@@ -134,19 +154,14 @@ export default function MovimientosBeta({ notify }: MovimientosProps) {
 			</header>
 
 			<section className="movimientos-filters">
-				<select
+				<SearchableSelect
 					value={assetFilter}
-					onChange={(event) => setAssetFilter(event.target.value)}
-					className="form-select"
-					aria-label="Filtrar por activo"
-				>
-					<option value="">Activo</option>
-					{assets.map((asset) => (
-						<option key={asset.id} value={asset.id}>
-							{asset.internalId ?? asset.nombre}
-						</option>
-					))}
-				</select>
+					onChange={setAssetFilter}
+					options={assetOptions}
+					emptyLabel="Activo"
+					placeholder="Buscar activo..."
+					ariaLabel="Filtrar por activo"
+				/>
 				<select
 					value={tipoFilter}
 					onChange={(event) => setTipoFilter(event.target.value as MovimientoTipo | "")}
@@ -178,18 +193,16 @@ export default function MovimientosBeta({ notify }: MovimientosProps) {
 
 			<Modal open={modalOpen} title="Nuevo movimiento" onClose={() => setModalOpen(false)}>
 				<form onSubmit={submit} className="movimientos-form">
-					<FormSelect
+					<SearchableSelect
 						label="Activo"
 						value={form.assetId}
 						onChange={(value) => {
 							const nextAsset = assets.find((asset) => asset.id === value);
 							setForm({ ...form, assetId: value, asignadoA: nextAsset?.asignadoA ?? form.asignadoA });
 						}}
-						options={assets.map((asset) => ({
-							value: asset.id,
-							label: asset.internalId ? `${asset.internalId} - ${asset.nombre}` : asset.nombre,
-						}))}
+						options={assetOptions}
 						emptyLabel="Seleccionar"
+						placeholder="Buscar activo..."
 						required
 					/>
 					<ComboBox

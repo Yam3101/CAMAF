@@ -1,9 +1,10 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import type { Toast } from "../App";
 import Badge from "../components/Badge";
 import Modal from "../components/Modal";
 import Table, { type Column } from "../components/Table";
+import SearchableSelect, { type SearchableSelectOption } from "../components/ui/SearchableSelect";
 import { useAuth } from "../hooks/useAuth";
 import type { Asset, Movimiento, MovimientoInput, MovimientoTipo, User } from "../types";
 import { isIpcError } from "../types";
@@ -72,6 +73,25 @@ export default function Movimientos({ notify }: MovimientosProps) {
 		void load();
 	}, [assetFilter, tipoFilter, fechaFilter]);
 
+	const assetOptions = useMemo<SearchableSelectOption[]>(
+		() =>
+			assets.map((asset) => ({
+				value: asset.id,
+				label: asset.internalId ? `${asset.internalId} - ${asset.nombre}` : asset.nombre,
+				searchText: [
+					asset.nombre,
+					asset.internalId,
+					asset.inventoryNumber,
+					asset.numeroSerie,
+					asset.marca,
+					asset.modelo,
+				]
+					.filter(Boolean)
+					.join(" "),
+			})),
+		[assets],
+	);
+
 	const openCreate = (): void => {
 		setForm({ ...emptyForm, usuarioId: user?.rol === "admin" ? "" : user?.id ?? "" });
 		setModalOpen(true);
@@ -133,19 +153,14 @@ export default function Movimientos({ notify }: MovimientosProps) {
 			</header>
 
 			<section className="movimientos-filters">
-				<select
+				<SearchableSelect
 					value={assetFilter}
-					onChange={(event) => setAssetFilter(event.target.value)}
-					className="form-select"
-					aria-label="Filtrar por activo"
-				>
-					<option value="">Activo</option>
-					{assets.map((asset) => (
-						<option key={asset.id} value={asset.id}>
-							{asset.internalId ?? asset.nombre}
-						</option>
-					))}
-				</select>
+					onChange={setAssetFilter}
+					options={assetOptions}
+					emptyLabel="Activo"
+					placeholder="Buscar activo..."
+					ariaLabel="Filtrar por activo"
+				/>
 				<select
 					value={tipoFilter}
 					onChange={(event) => setTipoFilter(event.target.value as MovimientoTipo | "")}
@@ -177,15 +192,13 @@ export default function Movimientos({ notify }: MovimientosProps) {
 
 			<Modal open={modalOpen} title="Nuevo movimiento" onClose={() => setModalOpen(false)}>
 				<form onSubmit={submit} className="movimientos-form">
-					<FormSelect
+					<SearchableSelect
 						label="Activo"
 						value={form.assetId}
 						onChange={(value) => setForm({ ...form, assetId: value })}
-						options={assets.map((asset) => ({
-							value: asset.id,
-							label: asset.internalId ?? asset.nombre,
-						}))}
+						options={assetOptions}
 						emptyLabel="Seleccionar"
+						placeholder="Buscar activo..."
 						required
 					/>
 					<FormSelect
