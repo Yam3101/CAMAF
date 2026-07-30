@@ -1,7 +1,7 @@
 import { app, ipcMain, shell, BrowserWindow } from "electron";
 import { join, dirname } from "node:path";
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, existsSync, copyFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { PDFDocument, PageSizes, StandardFonts, rgb } from "pdf-lib";
 import __cjs_mod__ from "node:module";
@@ -329,8 +329,9 @@ let db = null;
 function getDatabase() {
   if (db) return db;
   const dbPath = join(app.getPath("userData"), "camaf.db");
-  !existsSync(dbPath);
   mkdirSync(dirname(dbPath), { recursive: true });
+  bootstrapDatabase(dbPath);
+  !existsSync(dbPath);
   db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
   initializeSchema(db);
@@ -341,6 +342,39 @@ function closeDatabase() {
     db.close();
     db = null;
   }
+}
+function bootstrapDatabase(dbPath) {
+  const seedPath = getBundledDatabasePath();
+  if (!existsSync(seedPath)) return;
+  if (!existsSync(dbPath) || shouldReplaceEmptyDatabase(dbPath, seedPath)) {
+    copyFileSync(seedPath, dbPath);
+  }
+}
+function getBundledDatabasePath() {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "db", "camaf.db");
+  }
+  return join(app.getAppPath(), "electron", "db", "seed", "camaf.db");
+}
+function shouldReplaceEmptyDatabase(dbPath, seedPath) {
+  try {
+    const existing = new Database(dbPath, { readonly: true, fileMustExist: true });
+    const seed = new Database(seedPath, { readonly: true, fileMustExist: true });
+    try {
+      return getTableCount(existing, "assets") === 0 && getTableCount(seed, "assets") > 0;
+    } finally {
+      existing.close();
+      seed.close();
+    }
+  } catch {
+    return false;
+  }
+}
+function getTableCount(database, tableName) {
+  const table = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
+  if (!table) return 0;
+  const row = database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get();
+  return row.count;
 }
 function safeHandle(channel, handler) {
   ipcMain.handle(channel, async (event, input) => {

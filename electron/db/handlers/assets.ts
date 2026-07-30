@@ -1,9 +1,9 @@
 import { shell } from 'electron';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
-import { PDFDocument, PageSizes, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PageSizes, StandardFonts, rgb, type PDFImage } from 'pdf-lib';
 import { getDatabase } from '../database';
 import { requireRole, requireSession } from './session';
 import { blankToNull, safeHandle } from './utils';
@@ -125,7 +125,13 @@ export function registerAssetHandlers(): void {
 
   safeHandle<{ id: string }, { success: boolean }>('assets:delete', (_event, input) => {
     requireRole(['admin', 'supervisor']);
-    getDatabase().prepare('DELETE FROM assets WHERE id = ?').run(input.id);
+    const db = getDatabase();
+    const transaction = db.transaction(() => {
+      db.prepare('DELETE FROM resguardos WHERE assetId = ?').run(input.id);
+      db.prepare('DELETE FROM movimientos WHERE assetId = ?').run(input.id);
+      db.prepare('DELETE FROM assets WHERE id = ?').run(input.id);
+    });
+    transaction();
     return { success: true };
   });
 
@@ -178,6 +184,7 @@ async function createResguardoPdf(resguardoId: string, asset: Asset, responsible
   const slate = rgb(0.12, 0.16, 0.23);
   const muted = rgb(0.39, 0.45, 0.55);
   const emerald = rgb(0.02, 0.45, 0.27);
+  const logo = await loadHeaderLogo(document);
   const now = new Date();
   const fecha = now.toLocaleDateString('es-MX');
 
@@ -188,8 +195,20 @@ async function createResguardoPdf(resguardoId: string, asset: Asset, responsible
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.8, color: muted });
   };
 
-  text('CAMAF - Camaleon Administracion de Activos Fijos', 54, 735, 16, true, emerald);
-  text('Mayakoba Mexico', 54, 713, 11, false, muted);
+  if (logo) {
+    const logoWidth = 126;
+    const logoHeight = (logo.height / logo.width) * logoWidth;
+    page.drawImage(logo, {
+      x: 54,
+      y: 720,
+      width: logoWidth,
+      height: logoHeight
+    });
+  } else {
+    text('CAMAF - Camaleon Administracion de Activos Fijos', 54, 735, 16, true, emerald);
+    text('Mayakoba Mexico', 54, 713, 11, false, muted);
+  }
+
   text('RESGUARDO INTERNO DE EQUIPO DE COMPUTO', 54, 665, 16, true);
   text(`Fecha de emision: ${fecha}`, 54, 640, 10, false, muted);
   text(`Folio: ${resguardoId}`, 360, 640, 10, false, muted);
@@ -239,4 +258,18 @@ async function createResguardoPdf(resguardoId: string, asset: Asset, responsible
   const pdfPath = join(dir, `resguardo-${safeInternalId}-${fileDate}.pdf`);
   writeFileSync(pdfPath, await document.save());
   return pdfPath;
+}
+
+async function loadHeaderLogo(document: PDFDocument): Promise<PDFImage | null> {
+  const logoPath = app.isPackaged
+    ? join(process.resourcesPath, 'brand', 'logopdfmayakoba.png')
+    : join(app.getAppPath(), 'src', 'assets', 'brand', 'logopdfmayakoba.png');
+
+  if (!existsSync(logoPath)) return null;
+
+  try {
+    return await document.embedPng(readFileSync(logoPath));
+  } catch {
+    return null;
+  }
 }

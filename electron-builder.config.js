@@ -4,6 +4,10 @@ export default {
   npmRebuild: false,
   directories: { output: 'release' },
   files: ['dist-electron/**/*', 'dist/**/*'],
+  extraResources: [
+    { from: 'electron/db/seed/camaf.db', to: 'db/camaf.db' },
+    { from: 'src/assets/brand/logopdfmayakoba.png', to: 'brand/logopdfmayakoba.png' }
+  ],
   win: {
     target: 'nsis',
     icon: 'resources/icon.ico',
