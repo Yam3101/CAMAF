@@ -1,6 +1,6 @@
 export default {
-  appId: 'com.mayakoba.camaf',
-  productName: 'CAMAF',
+  appId: 'com.mayakoba.camaf.v1',
+  productName: 'CAMAF V1',
   npmRebuild: false,
   directories: { output: 'release' },
   files: ['dist-electron/**/*', 'dist/**/*'],

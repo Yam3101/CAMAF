@@ -1,6 +1,6 @@
 {
   "name": "camaf",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "CAMAF - Camaleon Administracion de Activos Fijos",
   "author": "Complejo Mayakoba Mexico",
   "private": true,
@@ -15,8 +15,8 @@
     "typecheck": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.mayakoba.camaf",
-    "productName": "CAMAF",
+    "appId": "com.mayakoba.camaf.v1",
+    "productName": "CAMAF V1",
     "npmRebuild": false,
     "directories": {
       "output": "release"

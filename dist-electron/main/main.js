@@ -778,6 +778,7 @@ function registerIpcHandlers() {
   registerAssetHandlers();
   registerMovimientoHandlers();
 }
+const appDisplayName = "CAMAF V1";
 let mainWindow = null;
 registerIpcHandlers();
 function createWindow() {
@@ -786,7 +787,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: "CAMAF - Administracion de Activos Fijos",
+    title: `${appDisplayName} - Administracion de Activos Fijos`,
     webPreferences: {
       preload: join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
@@ -800,6 +801,8 @@ function createWindow() {
   }
 }
 app.whenReady().then(() => {
+  app.setName(appDisplayName);
+  app.setPath("userData", join(app.getPath("appData"), appDisplayName));
   getDatabase();
   createWindow();
 });
