@@ -1,7 +1,7 @@
 import { app, ipcMain, shell, BrowserWindow } from "electron";
 import { join, dirname } from "node:path";
 import Database from "better-sqlite3";
-import { mkdirSync, existsSync, copyFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, existsSync, copyFileSync, writeFileSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { PDFDocument, PageSizes, StandardFonts, rgb } from "pdf-lib";
 import __cjs_mod__ from "node:module";
@@ -335,6 +335,7 @@ function getDatabase() {
   db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
   initializeSchema(db);
+  importBundledSeed(db);
   return db;
 }
 function closeDatabase() {
@@ -375,6 +376,53 @@ function getTableCount(database, tableName) {
   if (!table) return 0;
   const row = database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get();
   return row.count;
+}
+function importBundledSeed(database) {
+  const seedPath = getBundledDatabasePath();
+  if (!existsSync(seedPath)) return;
+  const localAssetCount = getTableCount(database, "assets");
+  const seed = new Database(seedPath, { readonly: true, fileMustExist: true });
+  const seedAssetCount = getTableCount(seed, "assets");
+  seed.close();
+  if (seedAssetCount === 0 || localAssetCount >= seedAssetCount) return;
+  database.prepare("ATTACH DATABASE ? AS bundled_seed").run(seedPath);
+  try {
+    const transaction = database.transaction(() => {
+      database.prepare(
+        `INSERT OR IGNORE INTO areas (id, nombre, unidad, descripcion, activo, createdAt, updatedAt)
+           SELECT id, nombre, unidad, descripcion, activo, createdAt, updatedAt
+           FROM bundled_seed.areas`
+      ).run();
+      database.prepare(
+        `INSERT OR IGNORE INTO assets (
+             id, internalId, inventoryNumber, nombre, tipo, marca, modelo, numeroSerie,
+             status, unidad, areaId, asignadoA, fechaAdquisicion, notas, createdAt, updatedAt
+           )
+           SELECT id, internalId, inventoryNumber, nombre, tipo, marca, modelo, numeroSerie,
+             status, unidad, areaId, asignadoA, fechaAdquisicion, notas, createdAt, updatedAt
+           FROM bundled_seed.assets`
+      ).run();
+      database.prepare(
+        `INSERT OR IGNORE INTO movimientos (id, assetId, asignadoA, tipo, descripcion, fecha, createdAt)
+           SELECT id, assetId, asignadoA, tipo, descripcion, fecha, createdAt
+           FROM bundled_seed.movimientos`
+      ).run();
+      database.prepare(
+        `INSERT OR IGNORE INTO resguardos (id, assetId, asignadoA, fechaEmision, pdfPath, createdAt)
+           SELECT id, assetId, asignadoA, fechaEmision, pdfPath, createdAt
+           FROM bundled_seed.resguardos`
+      ).run();
+      database.prepare(
+        `INSERT OR IGNORE INTO migraciones (nombre, ejecutada_en)
+           SELECT nombre, ejecutada_en
+           FROM bundled_seed.migraciones`
+      ).run();
+      database.prepare("INSERT OR IGNORE INTO migraciones (nombre) VALUES ('bundled_seed_import')").run();
+    });
+    transaction();
+  } finally {
+    database.prepare("DETACH DATABASE bundled_seed").run();
+  }
 }
 function safeHandle(channel, handler) {
   ipcMain.handle(channel, async (event, input) => {
@@ -551,7 +599,13 @@ function registerAssetHandlers() {
     return getAssetOrThrow(input.id);
   });
   safeHandle("assets:delete", (_event, input) => {
-    getDatabase().prepare("DELETE FROM assets WHERE id = ?").run(input.id);
+    const db2 = getDatabase();
+    const transaction = db2.transaction(() => {
+      db2.prepare("DELETE FROM resguardos WHERE assetId = ?").run(input.id);
+      db2.prepare("DELETE FROM movimientos WHERE assetId = ?").run(input.id);
+      db2.prepare("DELETE FROM assets WHERE id = ?").run(input.id);
+    });
+    transaction();
     return { success: true };
   });
   safeHandle("assets:assignedNames", () => {
@@ -589,6 +643,7 @@ async function createResguardoPdf(resguardoId, asset) {
   const slate = rgb(0.12, 0.16, 0.23);
   const muted = rgb(0.39, 0.45, 0.55);
   const emerald = rgb(0.02, 0.45, 0.27);
+  const logo = await loadHeaderLogo(document);
   const now = /* @__PURE__ */ new Date();
   const fecha = now.toLocaleDateString("es-MX");
   const text = (value, x, y2, size = 10, useBold = false, color = slate) => {
@@ -597,8 +652,19 @@ async function createResguardoPdf(resguardoId, asset) {
   const line = (x1, y1, x2, y2) => {
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.8, color: muted });
   };
-  text("CAMAF - Camaleón Administración de Activos Fijos", 54, 735, 16, true, emerald);
-  text("Mayakoba México", 54, 713, 11, false, muted);
+  if (logo) {
+    const logoWidth = 126;
+    const logoHeight = logo.height / logo.width * logoWidth;
+    page.drawImage(logo, {
+      x: 54,
+      y: 720,
+      width: logoWidth,
+      height: logoHeight
+    });
+  } else {
+    text("CAMAF - Camaleón Administración de Activos Fijos", 54, 735, 16, true, emerald);
+    text("Mayakoba México", 54, 713, 11, false, muted);
+  }
   text("RESGUARDO INTERNO DE EQUIPO DE CÓMPUTO", 54, 665, 16, true);
   text(`Fecha de emisión: ${fecha}`, 54, 640, 10, false, muted);
   text(`Folio: ${resguardoId}`, 360, 640, 10, false, muted);
@@ -643,6 +709,15 @@ async function createResguardoPdf(resguardoId, asset) {
   const pdfPath = join(dir, `resguardo-${safeInternalId}-${fileDate}.pdf`);
   writeFileSync(pdfPath, await document.save());
   return pdfPath;
+}
+async function loadHeaderLogo(document) {
+  const logoPath = app.isPackaged ? join(process.resourcesPath, "brand", "logopdfmayakoba.png") : join(app.getAppPath(), "src", "assets", "brand", "logopdfmayakoba.png");
+  if (!existsSync(logoPath)) return null;
+  try {
+    return await document.embedPng(readFileSync(logoPath));
+  } catch {
+    return null;
+  }
 }
 const movimientoSelect = `
   SELECT movimientos.id, movimientos.assetId, assets.nombre AS assetNombre,
